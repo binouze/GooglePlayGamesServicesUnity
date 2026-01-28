@@ -70,21 +70,21 @@ public class GPGSHelper {
     private static void initializeSdk(Activity activity) {
         if (_isInitialized) return;
     
-        // Le SDK s'initialise sur l'UI Thread
+        // 1. Initialisation classique
         PlayGamesSdk.initialize(activity);
         _isInitialized = true;
     
-        // Le hack Instrumentation est fait dans un thread secondaire pour éviter de crash
-        new Thread(() -> {
-            try {
-                Instrumentation instrum = new Instrumentation();
-                instrum.callActivityOnPause(activity);
-                instrum.callActivityOnResume(activity);
-                logDebug("Lifecycle events forced via Background Thread.");
-            } catch (Exception e) {
-                logError("Instrumentation failed: " + e.getMessage());
-            }
-        }).start();
+        // 2. Appel du hack directement sur l'UI Thread
+        try {
+            logDebug("Forcing lifecycle events on Main Thread...");
+            Instrumentation instrum = new Instrumentation();
+            instrum.callActivityOnPause(activity);
+            instrum.callActivityOnResume(activity);
+            logDebug("Lifecycle events forced successfully.");
+        } catch (Exception e) {
+            // Si cela échoue encore, on log l'erreur mais on ne bloque pas le jeu
+            logError("Instrumentation failed: " + e.getMessage());
+        }
     }
 
     // --- SIGN IN FLOWS ---
@@ -256,7 +256,7 @@ public class GPGSHelper {
     
     private static void sendSignInResultToUnity(int status, String authCode, String displayName, String gpgsId) {
         try {
-            JSONObject jsonRoot = new JSONObject();
+            JSONObject jsonRoot   = new JSONObject();
             JSONObject jsonResult = new JSONObject();
 
             jsonResult.put("Status", status);
