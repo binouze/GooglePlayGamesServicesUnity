@@ -70,20 +70,26 @@ public class GPGSHelper {
     private static void initializeSdk(Activity activity) {
         if (_isInitialized) return;
     
-        // 1. Initialisation classique
         PlayGamesSdk.initialize(activity);
         _isInitialized = true;
     
-        // 2. Appel du hack directement sur l'UI Thread
         try {
-            logDebug("Forcing lifecycle events on Main Thread...");
+            logDebug("Step 1: Forcing OnPause...");
             Instrumentation instrum = new Instrumentation();
             instrum.callActivityOnPause(activity);
-            instrum.callActivityOnResume(activity);
-            logDebug("Lifecycle events forced successfully.");
+    
+            // On laisse 100ms au système pour "digérer" la pause
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                try {
+                    logDebug("Step 2: Forcing OnResume...");
+                    instrum.callActivityOnResume(activity);
+                } catch (Exception e) {
+                    logError("Resume hack failed: " + e.getMessage());
+                }
+            }, 100);
+    
         } catch (Exception e) {
-            // Si cela échoue encore, on log l'erreur mais on ne bloque pas le jeu
-            logError("Instrumentation failed: " + e.getMessage());
+            logError("Pause hack failed: " + e.getMessage());
         }
     }
 
