@@ -1,0 +1,13 @@
+{
+  "name": "com.binouze.gpgs",
+  "version": "1.0.0",
+  "unity": "6000.3",
+  "displayName": "Google Play Games Services Unity",
+  "description": "Google Play Games Services integration for Android.",
+  "changelogUrl": "https://github.com/binouze/GooglePlayGamesServicesUnity/releases",
+  "documentationUrl": "https://github.com/binouze/GooglePlayGamesServicesUnity",
+  "author": {
+    "name": "Benjamin BOUFFIER",
+    "email": "benjamin.bouffier@gmail.com"
+  }
+}
