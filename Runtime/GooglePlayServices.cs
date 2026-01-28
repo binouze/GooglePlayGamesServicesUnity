@@ -58,6 +58,15 @@ namespace com.binouze.gpgs
         }
         
         /// <summary>
+        /// Enable or disable logs fromm the plugin
+        /// </summary>
+        [UsedImplicitly]
+        public static void SetLoggingEnabled( bool enabled )
+        {
+            GPGSManager.SetLoggingEnabled( enabled );
+        }
+        
+        /// <summary>
         /// Resets all static variables and close opened dialogs if possible
         /// </summary>
         [UsedImplicitly]
