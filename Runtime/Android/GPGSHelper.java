@@ -79,7 +79,7 @@ public class GPGSHelper {
                         if (result.isAuthenticated()) {
                             logDebug("Silent Sign-In Success!");
                             _isAuthenticated = true;
-                            processSuccess();
+                            processSignInSuccess();
                         } else {
                             // CAS 1 : Pas d'erreur technique, mais pas connecté.
                             // C'est le cas standard au premier lancement.
@@ -87,11 +87,11 @@ public class GPGSHelper {
                             _isAuthenticated = false;
                             // On renvoie SIGN_IN_REQUIRED
                             int unityCode = mapToUnityStatusCode(CommonStatusCodes.SIGN_IN_REQUIRED);
-                            sendResultToUnity(unityCode, null, null, null);
+                            sendSignInResultToUnity(unityCode, null, null, null);
                         }
                     } else {
                         // CAS 2 : Erreur technique (Réseau, Config, etc.)
-                        handleTaskException(task.getException(), "Silent Sign-In");
+                        handleSignInException(task.getException(), "Silent Sign-In");
                     }
                 });
         });
@@ -113,24 +113,26 @@ public class GPGSHelper {
                         if (result.isAuthenticated()) {
                             logDebug("Interactive Sign-In Success!");
                             _isAuthenticated = true;
-                            processSuccess();
+                            processSignInSuccess();
                         } else {
                             // CAS 1 : La fenêtre s'est ouverte mais le résultat est négatif
                             // Souvent assimilé à une annulation ou un échec silencieux
                             logDebug("Interactive Sign-In: Not Authenticated (No Exception).");
                             _isAuthenticated = false;
                             int unityCode = mapToUnityStatusCode(CommonStatusCodes.CANCELED);
-                            sendResultToUnity(unityCode, null, null, null);
+                            sendSignInResultToUnity(unityCode, null, null, null);
                         }
                     } else {
                         // CAS 2 : Vraie erreur (Crash, Config SHA-1 incorrecte, etc.)
-                        handleTaskException(task.getException(), "Interactive Sign-In");
+                        handleSignInException(task.getException(), "Interactive Sign-In");
                     }
                 });
         });
     }
 
-    private static void handleTaskException(Exception exception, String context) {
+    // --- PROCESSING RESULTS ---
+    
+    private static void handleSignInException(Exception exception, String context) {
         int googleCode = CommonStatusCodes.ERROR;
         String errorMessage = "Unknown Error";
         _isAuthenticated = false;
@@ -147,12 +149,10 @@ public class GPGSHelper {
         
         logError(context + " Failed. StatusCode: " + googleCode + " -> UnityCode: " + unityCode + " | Message: " + errorMessage);
         
-        sendResultToUnity(unityCode, null, null, null);
+        sendSignInResultToUnity(unityCode, null, null, null);
     }
 
-    // --- PROCESSING RESULTS ---
-
-    private static void processSuccess() {
+    private static void processSignInSuccess() {
         Activity activity = UnityPlayer.currentActivity;
 
         // Si on ne demande pas d'AuthCode, on passe directement à la récupération du profil
@@ -188,7 +188,7 @@ public class GPGSHelper {
                 
                 // On gère les deux types de retours possibles
                 if (result instanceof AuthResponse) {
-                    authCode = ((AuthResponse) result).getAuthCode(); //
+                    authCode = ((AuthResponse) result).getAuthCode();
                 } else if (result instanceof String) {
                     authCode = (String) result;
                 }
@@ -200,26 +200,6 @@ public class GPGSHelper {
 
             // récupérer les infos GooglePlayGames 
             fetchPlayerInfo(authCode);
-            /*final String finalAuthCode = authCode;
-
-            // 2. Récupérer le GamerTag (Pseudo)
-            PlayGames.getPlayersClient(activity).getCurrentPlayer()
-                .addOnCompleteListener(playerTask -> {
-                    String displayName = "Player";
-                    String gpgsId      = "";
-                    if (playerTask.isSuccessful() && playerTask.getResult() != null) {
-                        Player player = playerTask.getResult();
-                        displayName   = player.getDisplayName();
-                        gpgsId        = player.getPlayerId();
-                        logDebug("Got Player Info. Name: " + displayName + ", ID: " + gpgsId);
-                    }
-                    else{
-                        logError("Failed to get Player Object");
-                    }
-                    
-                    // 3. Envoyer le JSON final
-                    sendResultToUnity(0, finalAuthCode, displayName, gpgsId);
-                });*/
         });
     }
     
@@ -239,34 +219,11 @@ public class GPGSHelper {
                     logError("Failed to get Player Object");
                 }
                 
-                sendResultToUnity(0, authCode, displayName, gpgsId);
+                sendSignInResultToUnity(0, authCode, displayName, gpgsId);
             });
     }
-
-    // --- SIGN OUT ---
-
-    public static void signOut() {
-        logDebug("SignOut");
-        _isAuthenticated = false;
-        sendResultToUnity(-2, null, null, null); 
-    }
-   
-
-    public static void closeDialog() {
-        Activity activity = UnityPlayer.currentActivity;
-        activity.runOnUiThread(() -> {
-            try {
-                logDebug("Force closing GPGS windows...");
-                activity.finishActivity(9003); 
-            } catch (Exception e) {
-                logError("Error closing dialogs: " + e.getMessage());
-            }
-        });
-    }
-
-    // --- JSON HELPER ---
-
-    private static void sendResultToUnity(int status, String authCode, String displayName, String gpgsId) {
+    
+    private static void sendSignInResultToUnity(int status, String authCode, String displayName, String gpgsId) {
         try {
             JSONObject jsonRoot = new JSONObject();
             JSONObject jsonResult = new JSONObject();
@@ -292,6 +249,31 @@ public class GPGSHelper {
             UnityPlayer.UnitySendMessage(CALLBACK_OBJECT, CALLBACK_METHOD, "{\"result\":{\"Status\":9}}");
         }
     }
+    
+
+    // --- SIGN OUT ---
+
+    public static void signOut() {
+        logDebug("SignOut");
+        _isAuthenticated = false;
+        sendSignInResultToUnity(-2, null, null, null); 
+    }
+   
+
+    public static void closeDialog() {
+        Activity activity = UnityPlayer.currentActivity;
+        activity.runOnUiThread(() -> {
+            try {
+                logDebug("Force closing GPGS windows...");
+                activity.finishActivity(9003); 
+            } catch (Exception e) {
+                logError("Error closing dialogs: " + e.getMessage());
+            }
+        });
+    }
+
+    
+    
     
     
     // --- ERROR MAPPING HELPER ---

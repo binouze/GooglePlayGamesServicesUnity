@@ -94,7 +94,7 @@ namespace com.binouze.gpgs.Editor
                 applicationNode.AppendChild( metaNode );
             }
 
-            metaNode.SetAttribute( "value", androidNs, "\\ " + projectId );
+            metaNode.SetAttribute( "value", androidNs, "" + projectId );
 
             // --- Gestion du Auto Sign-In (Provider) ---
             var providerName = "com.google.android.gms.games.provider.PlayGamesInitProvider";
