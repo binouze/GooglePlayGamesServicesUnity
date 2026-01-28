@@ -61,6 +61,9 @@ public class GPGSHelper {
         _requestAuthCode = requestAuthCode;
         _requestProfile  = requestProfile;
         logDebug("Configured. WebClientId set. RequestAuthCode: " + _requestAuthCode + " RequestEmail: " + _requestEmail + " RequestProfile: " + _requestProfile);
+        
+        Activity activity = UnityPlayer.currentActivity;
+        initializeSdk(activity);
     }
 
     // --- INIT ---
