@@ -27,7 +27,7 @@ namespace com.binouze.gpgs
             
             var configuration = new GPGSConfiguration
             {
-                WebClientId     = settings.WebClientID,
+                WebClientId     = settings.OAuthClientID,
                 RequestProfile  = true,
                 RequestEmail    = true,
                 RequestAuthCode = true
@@ -51,7 +51,7 @@ namespace com.binouze.gpgs
                     Debug.LogException( new Exception("[GooglePlayServices] Fail to load settings file") );
                     return;
                 }
-                configuration.WebClientId = settings.WebClientID;
+                configuration.WebClientId = settings.OAuthClientID;
             }
             
             GPGSManager.GetInstance().SetConfiguration( configuration );

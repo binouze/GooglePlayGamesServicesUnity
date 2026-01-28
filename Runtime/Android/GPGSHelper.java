@@ -22,6 +22,8 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 
+import android.app.Instrumentation;
+
 public class GPGSHelper {
 
     private static final String TAG = "GPGSHelper";
@@ -61,13 +63,36 @@ public class GPGSHelper {
         logDebug("Configured. WebClientId set. RequestAuthCode: " + _requestAuthCode + " RequestEmail: " + _requestEmail + " RequestProfile: " + _requestProfile);
     }
 
+    // --- INIT ---
+
+    private static boolean _isInitialized = false;
+    
+    private static void initializeSdk(Activity activity) {
+        if (_isInitialized) return;
+    
+        logDebug("Manual Initialization of Play Games SDK...");
+        PlayGamesSdk.initialize(activity);
+        _isInitialized = true;
+    
+        // L'astuce magique : On simule un cycle Pause/Resume
+        // Cela force le SDK à déclencher sa logique interne de connexion
+        try {
+            Instrumentation instrum = new Instrumentation();
+            instrum.callActivityOnPause(activity);
+            instrum.callActivityOnResume(activity);
+            logDebug("Lifecycle events forced via Instrumentation.");
+        } catch (Exception e) {
+            logError("Failed to force lifecycle events: " + e.getMessage());
+        }
+    }
+
     // --- SIGN IN FLOWS ---
 
     public static void signInSilently() {
         Activity activity = UnityPlayer.currentActivity;
         
         activity.runOnUiThread(() -> {
-            PlayGamesSdk.initialize(activity);
+            initializeSdk(activity);
     
             PlayGames.getGamesSignInClient(activity)
                 .isAuthenticated()
@@ -101,7 +126,7 @@ public class GPGSHelper {
         Activity activity = UnityPlayer.currentActivity;
     
         activity.runOnUiThread(() -> {
-            PlayGamesSdk.initialize(activity);
+            initializeSdk(activity);
             
             logDebug("Starting Interactive Sign-In...");
             PlayGames.getGamesSignInClient(activity)

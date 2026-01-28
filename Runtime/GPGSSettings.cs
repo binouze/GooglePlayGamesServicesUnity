@@ -45,7 +45,7 @@ namespace com.binouze.gpgs
 
         public bool IsValid()
         {
-            return !string.IsNullOrEmpty( _WebClientID ) && !string.IsNullOrEmpty( _GPGS_ID );
+            return !string.IsNullOrEmpty( _GPGS_ID );
         }
         
         // -- GPGS
@@ -55,17 +55,17 @@ namespace com.binouze.gpgs
         [SerializeField][Tooltip("Game's GPGS ID found in the Google Play Console")]
         private string _GPGS_ID;
         [SerializeField][TextArea][Tooltip("Game's Web Client ID found in the Google Play Console")]
-        private string _WebClientID = string.Empty;
+        private string _OAuthClientID = string.Empty;
         
         public string GPGS_ID
         {
             get => _GPGS_ID;
             private set => _GPGS_ID = value;
         }
-        public string WebClientID
+        public string OAuthClientID
         {
-            get => _WebClientID;
-            private set => _WebClientID = value;
+            get => _OAuthClientID;
+            private set => _OAuthClientID = value;
         }
         public bool AutoSignIn
         {
