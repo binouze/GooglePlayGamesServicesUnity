@@ -161,6 +161,11 @@ public class GPGSHelper {
     }
 
     public static void signInSilently() {
+        if( !_usingProvider && !_isInitialized ) {
+            manualSilentSignIn();
+            return;
+        }
+    
         Activity activity = UnityPlayer.currentActivity;
         
         activity.runOnUiThread(() -> {
