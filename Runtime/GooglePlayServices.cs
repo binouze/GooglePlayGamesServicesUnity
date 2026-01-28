@@ -27,10 +27,11 @@ namespace com.binouze.gpgs
             
             var configuration = new GPGSConfiguration
             {
-                WebClientId     = settings.OAuthClientID,
-                RequestProfile  = true,
-                RequestEmail    = true,
-                RequestAuthCode = true
+                WebClientId      = settings.OAuthClientID,
+                AutoSignIn       = settings.AutoSignIn,
+                RequestProfile   = true,
+                RequestEmail     = true,
+                RequestAuthCode  = true
             };
             GPGSManager.GetInstance().SetConfiguration( configuration );
             GPGSManager.OnAuthenticationFinished = OnAuthenticationFinished;
@@ -52,6 +53,7 @@ namespace com.binouze.gpgs
                     return;
                 }
                 configuration.WebClientId = settings.OAuthClientID;
+                configuration.AutoSignIn  = settings.AutoSignIn;
             }
             
             GPGSManager.GetInstance().SetConfiguration( configuration );

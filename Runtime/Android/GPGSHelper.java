@@ -24,9 +24,15 @@ import java.util.List;
 
 import android.app.Instrumentation;
 
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.api.ApiException;
+
 public class GPGSHelper {
 
-    private static final String TAG = "GPGSHelper";
+    private static final String TAG             = "GPGSHelper";
     private static final String CALLBACK_OBJECT = "GPGSManagerObject";
     private static final String CALLBACK_METHOD = "OnGPGSSignInResult";
 
@@ -37,7 +43,11 @@ public class GPGSHelper {
     private static boolean _requestAuthCode = false; 
     private static boolean _requestProfile  = false; 
     private static boolean _debugLog        = false;
+    
+    // Etat Runtime
     private static boolean _isAuthenticated = false;
+    private static boolean _isInitialized   = false;
+    private static boolean _usingProvider   = true; // Par défaut true, écrasé par configure
 
     // --- LOGGING ---
 
@@ -55,82 +65,137 @@ public class GPGSHelper {
 
     // --- CONFIGURATION ---
 
-    public static void configure(String webClientId, boolean requestAuthCode, boolean requestEmail, boolean requestProfile) {
+    public static void configure(String webClientId, boolean requestAuthCode, boolean requestEmail, boolean requestProfile, boolean autologinEnabled) {
         _webClientId     = webClientId;
         _requestEmail    = requestEmail;
         _requestAuthCode = requestAuthCode;
         _requestProfile  = requestProfile;
-        logDebug("Configured. WebClientId set. RequestAuthCode: " + _requestAuthCode + " RequestEmail: " + _requestEmail + " RequestProfile: " + _requestProfile);
         
-        Activity activity = UnityPlayer.currentActivity;
-        initializeSdk(activity);
+        // Si le provider est activé (autologinEnabled), le SDK est considéré comme 
+        // déjà initialisé par Android au démarrage du processus.
+        _usingProvider = autologinEnabled;
+        if(_usingProvider) {
+            _isInitialized = true;
+        }
+
+        logDebug("Configured. WebClientId set. ProviderEnabled: " + _usingProvider);
     }
 
     // --- INIT ---
 
-    private static boolean _isInitialized = false;
-    
-    private static void initializeSdk(Activity activity) {
-        if (_isInitialized) return;
+    private static boolean initializeSdk(Activity activity) {
+        if (_isInitialized) return false;
     
         PlayGamesSdk.initialize(activity);
         _isInitialized = true;
     
-        try {
-            logDebug("Step 1: Forcing OnPause...");
-            Instrumentation instrum = new Instrumentation();
-            instrum.callActivityOnPause(activity);
-    
-            // On laisse 100ms au système pour "digérer" la pause
-            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                try {
-                    logDebug("Step 2: Forcing OnResume...");
-                    instrum.callActivityOnResume(activity);
-                } catch (Exception e) {
-                    logError("Resume hack failed: " + e.getMessage());
-                }
-            }, 100);
-    
-        } catch (Exception e) {
-            logError("Pause hack failed: " + e.getMessage());
+        // Si on utilise le Provider, pas besoin de hack.
+        // On ne fait le hack Instrumentation que si le Provider a été supprimé.
+        if (!_usingProvider) {
+            try {
+                logDebug("No Provider detected. Forcing Lifecycle events via Instrumentation...");
+                Instrumentation instrum = new Instrumentation();
+                instrum.callActivityOnPause(activity);
+                instrum.callActivityOnResume(activity);
+            } catch (Exception e) {
+                logError("Instrumentation hack failed: " + e.getMessage());
+            }
         }
+        
+        return true;
     }
 
     // --- SIGN IN FLOWS ---
+
+    /**
+     * Méthode de secours utilisant l'API Auth directement.
+     * Utile uniquement si le Provider est désactivé/supprimé.
+     */
+    public static void manualSilentSignIn() {
+        // Sécurité : Si le provider est actif, on redirige vers la méthode standard
+        if (_usingProvider) {
+            logDebug("Provider enabled, redirecting manualSilentSignIn to standard signInSilently");
+            signInSilently();
+            return;
+        }
+
+        Activity activity = UnityPlayer.currentActivity;
+        
+        activity.runOnUiThread(() -> {
+            logDebug("Starting Manual Silent Sign-In via GoogleAuth...");
+    
+            GoogleSignInOptions.Builder builder = 
+                new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_GAMES_SIGN_IN);
+    
+            if (_requestAuthCode && !_webClientId.isEmpty()) {
+                builder.requestServerAuthCode(_webClientId);
+            }
+            if (_requestEmail) builder.requestEmail();
+            if (_requestProfile) builder.requestProfile();
+    
+            GoogleSignInOptions options = builder.build();
+            GoogleSignInClient signInClient = GoogleSignIn.getClient(activity, options);
+    
+            signInClient.silentSignIn().addOnCompleteListener(activity, task -> {
+                if (task.isSuccessful()) {
+                    GoogleSignInAccount account = task.getResult();
+                    logDebug("GoogleAuth Silent Success! Account: " + account.getEmail());
+    
+                    // On attache le SDK Games maintenant que Auth est réussi
+                    PlayGamesSdk.initialize(activity);
+                    _isInitialized = true;
+                    _isAuthenticated = true;
+                    
+                    // On lance le flux standard pour récupérer les infos Joueur
+                    // On appelle directement la logique de succès car on sait qu'on est connecté
+                    signInSilently(); 
+                } else {
+                    logDebug("GoogleAuth Silent Fail: " + task.getException());
+                    _isAuthenticated = false;
+                    sendSignInResultToUnity(4, null, null, null); // 4 = SignInRequired
+                }
+            });
+        });
+    }
 
     public static void signInSilently() {
         Activity activity = UnityPlayer.currentActivity;
         
         activity.runOnUiThread(() -> {
-            initializeSdk(activity);
+            // Initialisation (skip hack si _usingProvider est true)
+            boolean needsDelay = initializeSdk(activity);
     
-            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            // Définition de la tâche de connexion
+            Runnable authTask = () -> {
                 PlayGames.getGamesSignInClient(activity)
                     .isAuthenticated()
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
-                            // La communication avec Google a réussi
                             AuthenticationResult result = task.getResult();
-                            
                             if (result.isAuthenticated()) {
                                 logDebug("Silent Sign-In Success!");
                                 _isAuthenticated = true;
                                 processSignInSuccess();
                             } else {
-                                // CAS 1 : Pas d'erreur technique, mais pas connecté.
-                                // C'est le cas standard au premier lancement.
-                                logDebug("Silent Sign-In: Not Authenticated (Normal).");
+                                logDebug("Silent Sign-In: Not Authenticated.");
                                 _isAuthenticated = false;
-                                // On renvoie SIGN_IN_REQUIRED
                                 int unityCode = mapToUnityStatusCode(CommonStatusCodes.SIGN_IN_REQUIRED);
                                 sendSignInResultToUnity(unityCode, null, null, null);
                             }
                         } else {
-                            // CAS 2 : Erreur technique (Réseau, Config, etc.)
                             handleSignInException(task.getException(), "Silent Sign-In");
                         }
                     });
-                }, 500); // delai de 500ms après lancement de l'init du SDK
+            };
+
+            // BRANCHEMENT : 
+            // Si Provider actif -> Exécution immédiate
+            // Si Provider inactif -> Exécution différée pour laisser le temps au hack init
+            if (!needsDelay) {
+                authTask.run();
+            } else {
+                new Handler(Looper.getMainLooper()).postDelayed(authTask, 500);
+            }
         });
     }
 
@@ -138,35 +203,38 @@ public class GPGSHelper {
         Activity activity = UnityPlayer.currentActivity;
     
         activity.runOnUiThread(() -> {
-            initializeSdk(activity);
+            boolean needsDelay = initializeSdk(activity);
             
             logDebug("Starting Interactive Sign-In...");
             
-            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            Runnable signInTask = () -> {
                 PlayGames.getGamesSignInClient(activity)
                     .signIn()
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
                             AuthenticationResult result = task.getResult();
-                            
                             if (result.isAuthenticated()) {
                                 logDebug("Interactive Sign-In Success!");
                                 _isAuthenticated = true;
                                 processSignInSuccess();
                             } else {
-                                // CAS 1 : La fenêtre s'est ouverte mais le résultat est négatif
-                                // Souvent assimilé à une annulation ou un échec silencieux
-                                logDebug("Interactive Sign-In: Not Authenticated (No Exception).");
+                                logDebug("Interactive Sign-In: Canceled or Failed.");
                                 _isAuthenticated = false;
                                 int unityCode = mapToUnityStatusCode(CommonStatusCodes.CANCELED);
                                 sendSignInResultToUnity(unityCode, null, null, null);
                             }
                         } else {
-                            // CAS 2 : Vraie erreur (Crash, Config SHA-1 incorrecte, etc.)
                             handleSignInException(task.getException(), "Interactive Sign-In");
                         }
                     });
-                }, 500); // delai de 500ms après lancement de l'init du SDK
+            };
+
+            // BRANCHEMENT :
+            if (!needsDelay) {
+                signInTask.run();
+            } else {
+                new Handler(Looper.getMainLooper()).postDelayed(signInTask, 500);
+            }
         });
     }
 

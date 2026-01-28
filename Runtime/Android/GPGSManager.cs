@@ -46,7 +46,7 @@ namespace com.binouze.gpgs.Android
             
             #if !UNITY_EDITOR
             using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("configure", configuration.WebClientId, configuration.RequestAuthCode, configuration.RequestEmail, configuration.RequestProfile );
+            cls.CallStatic("configure", configuration.WebClientId, configuration.RequestAuthCode, configuration.RequestEmail, configuration.RequestProfile, configuration.AutoSignIn );
             #endif
         }
         

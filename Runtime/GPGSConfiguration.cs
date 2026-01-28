@@ -15,5 +15,9 @@ namespace com.binouze.gpgs
         public bool RequestEmail    = false;
         /// <summary>Request profile, requires consent.</summary>
         public bool RequestProfile  = false;
+        /// <summary>
+        /// true if auto sign in is enabled in the settings
+        /// </summary>
+        internal bool AutoSignIn  = false;
     }
 }
