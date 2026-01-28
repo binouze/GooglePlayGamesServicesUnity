@@ -29,6 +29,7 @@ public class GPGSHelper {
     private static final String CALLBACK_METHOD = "OnGPGSSignInResult";
 
     // --- CONFIGURATION STATE ---
+    
     private static String  _webClientId     = "";
     private static boolean _requestEmail    = false; 
     private static boolean _requestAuthCode = false; 
@@ -84,7 +85,7 @@ public class GPGSHelper {
                             // C'est le cas standard au premier lancement.
                             logDebug("Silent Sign-In: Not Authenticated (Normal).");
                             _isAuthenticated = false;
-                            // On renvoie SIGN_IN_REQUIRED (qui deviendra InvalidAccount/4 dans Unity)
+                            // On renvoie SIGN_IN_REQUIRED
                             int unityCode = mapToUnityStatusCode(CommonStatusCodes.SIGN_IN_REQUIRED);
                             sendResultToUnity(unityCode, null, null, null);
                         }
@@ -149,7 +150,7 @@ public class GPGSHelper {
         sendResultToUnity(unityCode, null, null, null);
     }
 
-    // --- PROCESSING RESULTS (Avec RequestServerSideAccess corrigé) ---
+    // --- PROCESSING RESULTS ---
 
     private static void processSuccess() {
         Activity activity = UnityPlayer.currentActivity;
@@ -222,7 +223,6 @@ public class GPGSHelper {
         });
     }
     
-    // Extraction de la logique de profil pour éviter la duplication
     private static void fetchPlayerInfo(String authCode) {
         Activity activity = UnityPlayer.currentActivity;
         
@@ -331,81 +331,80 @@ public class GPGSHelper {
                 logDebug("Unmapped Google Error Code: " + googleCode);
                 return 9; // Error (Generic)
         }
+    }
         
         
-        
-        // -- ACHIEVEMENTS
-        
-        public static void unlockAchievement(String achievementId) {
-            if( !_isAuthenticated )
-            {
-                logDebug("Unlock Achievement FAIL, user not signed in");
-                return;
-            }
-        
-            Activity activity = UnityPlayer.currentActivity;
-            activity.runOnUiThread(() -> {
-                try {
-                    PlayGames.getAchievementsClient(activity).unlock(achievementId);
-                    logDebug("Unlock Achievement: " + achievementId);
-                } catch (Exception e) {
-                    logError("Unlock failed: " + e.getMessage());
-                }
-            });
+    // --- ACHIEVEMENTS ---
+    
+    public static void unlockAchievement(String achievementId) {
+        if( !_isAuthenticated )
+        {
+            logDebug("Unlock Achievement FAIL, user not signed in");
+            return;
         }
     
-        public static void showAchievements() {
-            if( !_isAuthenticated )
-            {
-                logDebug("Show Achievements FAIL, user not signed in");
-                return;
+        Activity activity = UnityPlayer.currentActivity;
+        activity.runOnUiThread(() -> {
+            try {
+                PlayGames.getAchievementsClient(activity).unlock(achievementId);
+                logDebug("Unlock Achievement: " + achievementId);
+            } catch (Exception e) {
+                logError("Unlock failed: " + e.getMessage());
             }
-                    
-            Activity activity = UnityPlayer.currentActivity;
-            activity.runOnUiThread(() -> {
-                PlayGames.getAchievementsClient(activity)
-                    .getAchievementsIntent()
-                    .addOnSuccessListener(intent -> {
-                        activity.startActivityForResult(intent, 9003);
-                    })
-                    .addOnFailureListener(e -> logError("Show UI failed: " + e.getMessage()));
-            });
+        });
+    }
+
+    public static void showAchievements() {
+        if( !_isAuthenticated )
+        {
+            logDebug("Show Achievements FAIL, user not signed in");
+            return;
         }
-        
-        public static void incrementAchievement(String achievementId, int steps) {
-            if (!_isAuthenticated) {
-                logDebug("Increment Achievements FAIL, user not signed in");
-                return;
+                
+        Activity activity = UnityPlayer.currentActivity;
+        activity.runOnUiThread(() -> {
+            PlayGames.getAchievementsClient(activity)
+                .getAchievementsIntent()
+                .addOnSuccessListener(intent -> {
+                    activity.startActivityForResult(intent, 9003);
+                })
+                .addOnFailureListener(e -> logError("Show UI failed: " + e.getMessage()));
+        });
+    }
+    
+    public static void incrementAchievement(String achievementId, int steps) {
+        if (!_isAuthenticated) {
+            logDebug("Increment Achievements FAIL, user not signed in");
+            return;
+        }
+    
+        Activity activity = UnityPlayer.currentActivity;
+        activity.runOnUiThread(() -> {
+            try {
+                // .increment() ajoute 'steps' au total déjà stocké sur les serveurs Google
+                PlayGames.getAchievementsClient(activity).increment(achievementId, steps);
+                logDebug("Incremented Achievement: " + achievementId + " by " + steps + " steps.");
+            } catch (Exception e) {
+                logError("Increment failed: " + e.getMessage());
             }
-        
-            Activity activity = UnityPlayer.currentActivity;
-            activity.runOnUiThread(() -> {
-                try {
-                    // .increment() ajoute 'steps' au total déjà stocké sur les serveurs Google
-                    PlayGames.getAchievementsClient(activity).increment(achievementId, steps);
-                    logDebug("Incremented Achievement: " + achievementId + " by " + steps + " steps.");
-                } catch (Exception e) {
-                    logError("Increment failed: " + e.getMessage());
-                }
-            });
+        });
+    }
+    
+    public static void setStepAchievement(String achievementId, int steps) {
+        if (!_isAuthenticated) {
+            logDebug("SetStep Achievements FAIL, user not signed in");
+            return;
         }
-        
-        public static void setStepAchievement(String achievementId, int steps) {
-            if (!_isAuthenticated) {
-                logDebug("SetStep Achievements FAIL, user not signed in");
-                return;
+    
+        Activity activity = UnityPlayer.currentActivity;
+        activity.runOnUiThread(() -> {
+            try {
+                // .setStep() défnini 'steps' sur les serveurs Google pour cet achievement
+                PlayGames.getAchievementsClient(activity).setStepsImmediate(achievementId, steps);
+                logDebug("SetStep Achievement: " + achievementId + " set " + steps + " steps.");
+            } catch (Exception e) {
+                logError("SetStep failed: " + e.getMessage());
             }
-        
-            Activity activity = UnityPlayer.currentActivity;
-            activity.runOnUiThread(() -> {
-                try {
-                    // .setStep() défnini 'steps' sur les serveurs Google pour cet achievement
-                    PlayGames.getAchievementsClient(activity).setStepsImmediate(achievementId, steps);
-                    logDebug("SetStep Achievement: " + achievementId + " set " + steps + " steps.");
-                } catch (Exception e) {
-                    logError("SetStep failed: " + e.getMessage());
-                }
-            });
-        }
+        });
     }
 }
