@@ -70,20 +70,21 @@ public class GPGSHelper {
     private static void initializeSdk(Activity activity) {
         if (_isInitialized) return;
     
-        logDebug("Manual Initialization of Play Games SDK...");
+        // Le SDK s'initialise sur l'UI Thread
         PlayGamesSdk.initialize(activity);
         _isInitialized = true;
     
-        // L'astuce magique : On simule un cycle Pause/Resume
-        // Cela force le SDK à déclencher sa logique interne de connexion
-        try {
-            Instrumentation instrum = new Instrumentation();
-            instrum.callActivityOnPause(activity);
-            instrum.callActivityOnResume(activity);
-            logDebug("Lifecycle events forced via Instrumentation.");
-        } catch (Exception e) {
-            logError("Failed to force lifecycle events: " + e.getMessage());
-        }
+        // Le hack Instrumentation est fait dans un thread secondaire pour éviter de crash
+        new Thread(() -> {
+            try {
+                Instrumentation instrum = new Instrumentation();
+                instrum.callActivityOnPause(activity);
+                instrum.callActivityOnResume(activity);
+                logDebug("Lifecycle events forced via Background Thread.");
+            } catch (Exception e) {
+                logError("Instrumentation failed: " + e.getMessage());
+            }
+        }).start();
     }
 
     // --- SIGN IN FLOWS ---
@@ -94,31 +95,33 @@ public class GPGSHelper {
         activity.runOnUiThread(() -> {
             initializeSdk(activity);
     
-            PlayGames.getGamesSignInClient(activity)
-                .isAuthenticated()
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        // La communication avec Google a réussi
-                        AuthenticationResult result = task.getResult();
-                        
-                        if (result.isAuthenticated()) {
-                            logDebug("Silent Sign-In Success!");
-                            _isAuthenticated = true;
-                            processSignInSuccess();
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                PlayGames.getGamesSignInClient(activity)
+                    .isAuthenticated()
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            // La communication avec Google a réussi
+                            AuthenticationResult result = task.getResult();
+                            
+                            if (result.isAuthenticated()) {
+                                logDebug("Silent Sign-In Success!");
+                                _isAuthenticated = true;
+                                processSignInSuccess();
+                            } else {
+                                // CAS 1 : Pas d'erreur technique, mais pas connecté.
+                                // C'est le cas standard au premier lancement.
+                                logDebug("Silent Sign-In: Not Authenticated (Normal).");
+                                _isAuthenticated = false;
+                                // On renvoie SIGN_IN_REQUIRED
+                                int unityCode = mapToUnityStatusCode(CommonStatusCodes.SIGN_IN_REQUIRED);
+                                sendSignInResultToUnity(unityCode, null, null, null);
+                            }
                         } else {
-                            // CAS 1 : Pas d'erreur technique, mais pas connecté.
-                            // C'est le cas standard au premier lancement.
-                            logDebug("Silent Sign-In: Not Authenticated (Normal).");
-                            _isAuthenticated = false;
-                            // On renvoie SIGN_IN_REQUIRED
-                            int unityCode = mapToUnityStatusCode(CommonStatusCodes.SIGN_IN_REQUIRED);
-                            sendSignInResultToUnity(unityCode, null, null, null);
+                            // CAS 2 : Erreur technique (Réseau, Config, etc.)
+                            handleSignInException(task.getException(), "Silent Sign-In");
                         }
-                    } else {
-                        // CAS 2 : Erreur technique (Réseau, Config, etc.)
-                        handleSignInException(task.getException(), "Silent Sign-In");
-                    }
-                });
+                    });
+                }, 500); // delai de 500ms après lancement de l'init du SDK
         });
     }
 
@@ -129,29 +132,32 @@ public class GPGSHelper {
             initializeSdk(activity);
             
             logDebug("Starting Interactive Sign-In...");
-            PlayGames.getGamesSignInClient(activity)
-                .signIn()
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        AuthenticationResult result = task.getResult();
-                        
-                        if (result.isAuthenticated()) {
-                            logDebug("Interactive Sign-In Success!");
-                            _isAuthenticated = true;
-                            processSignInSuccess();
+            
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                PlayGames.getGamesSignInClient(activity)
+                    .signIn()
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            AuthenticationResult result = task.getResult();
+                            
+                            if (result.isAuthenticated()) {
+                                logDebug("Interactive Sign-In Success!");
+                                _isAuthenticated = true;
+                                processSignInSuccess();
+                            } else {
+                                // CAS 1 : La fenêtre s'est ouverte mais le résultat est négatif
+                                // Souvent assimilé à une annulation ou un échec silencieux
+                                logDebug("Interactive Sign-In: Not Authenticated (No Exception).");
+                                _isAuthenticated = false;
+                                int unityCode = mapToUnityStatusCode(CommonStatusCodes.CANCELED);
+                                sendSignInResultToUnity(unityCode, null, null, null);
+                            }
                         } else {
-                            // CAS 1 : La fenêtre s'est ouverte mais le résultat est négatif
-                            // Souvent assimilé à une annulation ou un échec silencieux
-                            logDebug("Interactive Sign-In: Not Authenticated (No Exception).");
-                            _isAuthenticated = false;
-                            int unityCode = mapToUnityStatusCode(CommonStatusCodes.CANCELED);
-                            sendSignInResultToUnity(unityCode, null, null, null);
+                            // CAS 2 : Vraie erreur (Crash, Config SHA-1 incorrecte, etc.)
+                            handleSignInException(task.getException(), "Interactive Sign-In");
                         }
-                    } else {
-                        // CAS 2 : Vraie erreur (Crash, Config SHA-1 incorrecte, etc.)
-                        handleSignInException(task.getException(), "Interactive Sign-In");
-                    }
-                });
+                    });
+                }, 500); // delai de 500ms après lancement de l'init du SDK
         });
     }
 
