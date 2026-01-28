@@ -105,22 +105,6 @@ namespace com.binouze.gpgs.Android
             OnGPGSSignInResult( "{\"deco\":\"ok\"}" );
             #endif
         }
-
-        public void UnlockAchievement( string achievementId )
-        {
-            #if !UNITY_EDITOR
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("unlockAchievement", achievementId);
-            #endif
-        }
-        
-        public void ShowAchievementsUI()
-        {
-            #if !UNITY_EDITOR
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("showAchievements");
-            #endif
-        }
         
         /// <summary>
         /// La methode appelee par le plugin natif pour renvoyer les resultats de login
@@ -142,6 +126,42 @@ namespace com.binouze.gpgs.Android
             }
         }
 
+        
+        // -- ACHIEVEMENTS
+        
+        public void UnlockAchievement( string achievementId )
+        {
+            #if !UNITY_EDITOR
+            using var cls = new AndroidJavaClass(JavaClassName);
+            cls.CallStatic("unlockAchievement", achievementId);
+            #endif
+        }
+        
+        public void IncrementAchievement( string achievementId, int increment )
+        {
+            #if !UNITY_EDITOR
+            using var cls = new AndroidJavaClass(JavaClassName);
+            cls.CallStatic("incrementAchievement", achievementId, increment);
+            #endif
+        }
+        
+        public void SetStepsAchievement( string achievementId, int steps )
+        {
+            #if !UNITY_EDITOR
+            using var cls = new AndroidJavaClass(JavaClassName);
+            cls.CallStatic("setStepAchievement", achievementId, steps);
+            #endif
+        }
+        
+        public void ShowAchievementsUI()
+        {
+            #if !UNITY_EDITOR
+            using var cls = new AndroidJavaClass(JavaClassName);
+            cls.CallStatic("showAchievements");
+            #endif
+        }
+        
+        
 
         private static GPGSManager _instance;
         public static GPGSManager GetInstance()

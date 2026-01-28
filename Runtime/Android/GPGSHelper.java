@@ -31,6 +31,7 @@ public class GPGSHelper {
     // --- CONFIGURATION STATE ---
     private static String  _webClientId     = "";
     private static boolean _requestEmail    = false; 
+    private static boolean _requestAuthCode = false; 
     private static boolean _requestProfile  = false; 
     private static boolean _debugLog        = false;
     private static boolean _isAuthenticated = false;
@@ -51,11 +52,12 @@ public class GPGSHelper {
 
     // --- CONFIGURATION ---
 
-    public static void configure(String webClientId, boolean requestEmail, boolean requestProfile) {
-        _webClientId    = webClientId;
-        _requestEmail   = requestEmail;
-        _requestProfile = requestProfile;
-        logDebug("Configured. WebClientId set. RequestEmail: " + _requestEmail + " RequestProfile: " + _requestProfile);
+    public static void configure(String webClientId, boolean requestAuthCode, boolean requestEmail, boolean requestProfile) {
+        _webClientId     = webClientId;
+        _requestEmail    = requestEmail;
+        _requestAuthCode = requestAuthCode;
+        _requestProfile  = requestProfile;
+        logDebug("Configured. WebClientId set. RequestAuthCode: " + _requestAuthCode + " RequestEmail: " + _requestEmail + " RequestProfile: " + _requestProfile);
     }
 
     // --- SIGN IN FLOWS ---
@@ -152,28 +154,27 @@ public class GPGSHelper {
     private static void processSuccess() {
         Activity activity = UnityPlayer.currentActivity;
 
-        // Préparation des scopes
-        // Si _requestEmail est vrai, on ajoute le scope EMAIL
-        // Sinon, on peut passer null ou une liste vide si on veut juste le code par défaut
-        
-        Task<?> task; // Task générique car le type de retour change selon la méthode appelée
+        // Si on ne demande pas d'AuthCode, on passe directement à la récupération du profil
+        if (!_requestAuthCode) {
+            logDebug("AuthCode not requested, fetching player info directly...");
+            fetchPlayerInfo(""); // On passe un code vide
+            return;
+        }
 
-        if (_requestEmail || _requestProfile ) {
-            logDebug("Requesting Server Side Access WITH EMAIL scope...");
+        // Sinon, on procède à la demande d'accès serveur
+        Task<?> task; 
+        if( _requestEmail || _requestProfile ) {
+            logDebug("Requesting Server Side Access with custom scope...");
             List<AuthScope> scopes = new ArrayList<>();
             if( _requestEmail )
                 scopes.add(AuthScope.EMAIL);
             if( _requestProfile )
                 scopes.add(AuthScope.PROFILE);
             
-            // Appel de la méthode à 3 arguments (Celle de ta documentation)
-            // Retourne Task<AuthResponse>
             task = PlayGames.getGamesSignInClient(activity)
                 .requestServerSideAccess(_webClientId, false, scopes);
         } else {
             logDebug("Requesting Server Side Access (No extra scopes)...");
-            // Appel standard à 2 arguments
-            // Retourne Task<String> (juste le code)
             task = PlayGames.getGamesSignInClient(activity)
                 .requestServerSideAccess(_webClientId, false);
         }
@@ -196,7 +197,9 @@ public class GPGSHelper {
                 logError("Failed to get AuthCode");
             }
 
-            final String finalAuthCode = authCode;
+            // récupérer les infos GooglePlayGames 
+            fetchPlayerInfo(authCode);
+            /*final String finalAuthCode = authCode;
 
             // 2. Récupérer le GamerTag (Pseudo)
             PlayGames.getPlayersClient(activity).getCurrentPlayer()
@@ -215,8 +218,29 @@ public class GPGSHelper {
                     
                     // 3. Envoyer le JSON final
                     sendResultToUnity(0, finalAuthCode, displayName, gpgsId);
-                });
+                });*/
         });
+    }
+    
+    // Extraction de la logique de profil pour éviter la duplication
+    private static void fetchPlayerInfo(String authCode) {
+        Activity activity = UnityPlayer.currentActivity;
+        
+        PlayGames.getPlayersClient(activity).getCurrentPlayer()
+            .addOnCompleteListener(playerTask -> {
+                String displayName = "Player";
+                String gpgsId      = "";
+                if (playerTask.isSuccessful() && playerTask.getResult() != null) {
+                    Player player = playerTask.getResult();
+                    displayName   = player.getDisplayName();
+                    gpgsId        = player.getPlayerId();
+                    logDebug("Got Player Info. Name: " + displayName + ", ID: " + gpgsId);
+                } else {
+                    logError("Failed to get Player Object");
+                }
+                
+                sendResultToUnity(0, authCode, displayName, gpgsId);
+            });
     }
 
     // --- SIGN OUT ---
@@ -226,44 +250,7 @@ public class GPGSHelper {
         _isAuthenticated = false;
         sendResultToUnity(-2, null, null, null); 
     }
-    
-    // --- ACHIEVEMENTS ---
-    
-    public static void unlockAchievement(String achievementId) {
-        if( !_isAuthenticated )
-        {
-            logDebug("Unlock Achievement FAIL, user not signed in");
-            return;
-        }
-    
-        Activity activity = UnityPlayer.currentActivity;
-        activity.runOnUiThread(() -> {
-            try {
-                PlayGames.getAchievementsClient(activity).unlock(achievementId);
-                logDebug("Unlock Achievement: " + achievementId);
-            } catch (Exception e) {
-                logError("Unlock failed: " + e.getMessage());
-            }
-        });
-    }
-
-    public static void showAchievements() {
-        if( !_isAuthenticated )
-        {
-            logDebug("Show Achievements FAIL, user not signed in");
-            return;
-        }
-                
-        Activity activity = UnityPlayer.currentActivity;
-        activity.runOnUiThread(() -> {
-            PlayGames.getAchievementsClient(activity)
-                .getAchievementsIntent()
-                .addOnSuccessListener(intent -> {
-                    activity.startActivityForResult(intent, 9003);
-                })
-                .addOnFailureListener(e -> logError("Show UI failed: " + e.getMessage()));
-        });
-    }
+   
 
     public static void closeDialog() {
         Activity activity = UnityPlayer.currentActivity;
@@ -343,6 +330,82 @@ public class GPGSHelper {
             default:
                 logDebug("Unmapped Google Error Code: " + googleCode);
                 return 9; // Error (Generic)
+        }
+        
+        
+        
+        // -- ACHIEVEMENTS
+        
+        public static void unlockAchievement(String achievementId) {
+            if( !_isAuthenticated )
+            {
+                logDebug("Unlock Achievement FAIL, user not signed in");
+                return;
+            }
+        
+            Activity activity = UnityPlayer.currentActivity;
+            activity.runOnUiThread(() -> {
+                try {
+                    PlayGames.getAchievementsClient(activity).unlock(achievementId);
+                    logDebug("Unlock Achievement: " + achievementId);
+                } catch (Exception e) {
+                    logError("Unlock failed: " + e.getMessage());
+                }
+            });
+        }
+    
+        public static void showAchievements() {
+            if( !_isAuthenticated )
+            {
+                logDebug("Show Achievements FAIL, user not signed in");
+                return;
+            }
+                    
+            Activity activity = UnityPlayer.currentActivity;
+            activity.runOnUiThread(() -> {
+                PlayGames.getAchievementsClient(activity)
+                    .getAchievementsIntent()
+                    .addOnSuccessListener(intent -> {
+                        activity.startActivityForResult(intent, 9003);
+                    })
+                    .addOnFailureListener(e -> logError("Show UI failed: " + e.getMessage()));
+            });
+        }
+        
+        public static void incrementAchievement(String achievementId, int steps) {
+            if (!_isAuthenticated) {
+                logDebug("Increment Achievements FAIL, user not signed in");
+                return;
+            }
+        
+            Activity activity = UnityPlayer.currentActivity;
+            activity.runOnUiThread(() -> {
+                try {
+                    // .increment() ajoute 'steps' au total déjà stocké sur les serveurs Google
+                    PlayGames.getAchievementsClient(activity).increment(achievementId, steps);
+                    logDebug("Incremented Achievement: " + achievementId + " by " + steps + " steps.");
+                } catch (Exception e) {
+                    logError("Increment failed: " + e.getMessage());
+                }
+            });
+        }
+        
+        public static void setStepAchievement(String achievementId, int steps) {
+            if (!_isAuthenticated) {
+                logDebug("SetStep Achievements FAIL, user not signed in");
+                return;
+            }
+        
+            Activity activity = UnityPlayer.currentActivity;
+            activity.runOnUiThread(() -> {
+                try {
+                    // .setStep() défnini 'steps' sur les serveurs Google pour cet achievement
+                    PlayGames.getAchievementsClient(activity).setStepsImmediate(achievementId, steps);
+                    logDebug("SetStep Achievement: " + achievementId + " set " + steps + " steps.");
+                } catch (Exception e) {
+                    logError("SetStep failed: " + e.getMessage());
+                }
+            });
         }
     }
 }
