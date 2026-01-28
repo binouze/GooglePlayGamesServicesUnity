@@ -2,12 +2,13 @@ package com.binouze;
 
 import android.app.Activity;
 import android.util.Log;
+import android.app.Instrumentation;
+import android.os.Handler;
+import android.os.Looper;
 
 import com.unity3d.player.UnityPlayer;
 
-import com.google.android.gms.common.api.ApiException;
-import com.google.android.gms.common.api.CommonStatusCodes;
-
+// GMS Games
 import com.google.android.gms.games.AuthenticationResult;
 import com.google.android.gms.games.Player;
 import com.google.android.gms.games.PlayGames;
@@ -15,20 +16,21 @@ import com.google.android.gms.games.PlayGamesSdk;
 import com.google.android.gms.games.gamessignin.AuthScope;
 import com.google.android.gms.games.gamessignin.AuthResponse;
 
-import com.google.android.gms.tasks.Task;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import android.app.Instrumentation;
-
+// GMS Auth & Common
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.CommonStatusCodes;
+import com.google.android.gms.tasks.Task;
+
+// JSON
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class GPGSHelper {
 
