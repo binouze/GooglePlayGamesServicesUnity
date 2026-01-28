@@ -1,0 +1,18 @@
+{
+    "name": "com.binouze.gpgs.Editor",
+    "rootNamespace": "com.binouze.gpgs",
+    "references": [
+        "GUID:c9b5aa6e056848be81dba3478576315e"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

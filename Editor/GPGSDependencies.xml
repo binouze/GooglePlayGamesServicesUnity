@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<dependencies>
+    <androidPackages>
+        <androidPackage spec="com.google.android.gms:play-services-games-v2:21.0.0"/>
+        <androidPackage spec="com.google.android.gms:play-services-auth:21.0.0"/>
+        <androidPackage spec="com.google.android.gms:play-services-base:18.4.0"/>
+    </androidPackages>
+</dependencies>
