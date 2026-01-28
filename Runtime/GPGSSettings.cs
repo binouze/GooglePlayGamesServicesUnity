@@ -29,7 +29,7 @@ namespace com.binouze.gpgs
             }
             return instance;
         }
-        [MenuItem("LagoonPlugins/SignInWithAppleOrGoogle Settings")]
+        [MenuItem("LagoonPlugins/GooglePlayGames Settings")]
         public static void OpenInspector()
         {
             Selection.activeObject = LoadSettingsInstance();
