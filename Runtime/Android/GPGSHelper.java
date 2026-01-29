@@ -16,6 +16,11 @@ import com.google.android.gms.games.PlayGamesSdk;
 import com.google.android.gms.games.gamessignin.AuthScope;
 import com.google.android.gms.games.gamessignin.AuthResponse;
 
+// GMS Auth & Common
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.CommonStatusCodes;
+import com.google.android.gms.tasks.Task;
+
 // JSON
 import org.json.JSONException;
 import org.json.JSONObject;
