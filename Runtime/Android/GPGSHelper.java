@@ -155,13 +155,13 @@ public class GPGSHelper {
                     logDebug("GoogleAuth Silent Success! Account: " + account.getEmail());
     
                     // On attache le SDK Games maintenant que Auth est réussi
-                    PlayGamesSdk.initialize(activity);
+                    /*PlayGamesSdk.initialize(activity);
                     _isInitialized = true;
-                    _isAuthenticated = true;
+                    _isAuthenticated = true;*/
                     
                     // On lance le flux standard pour récupérer les infos Joueur
                     // On appelle directement la logique de succès car on sait qu'on est connecté
-                    signInSilently(); 
+                    signInSilently(true); 
                 } else {
                     logDebug("GoogleAuth Silent Fail: " + task.getException());
                     _isAuthenticated = false;
@@ -171,7 +171,7 @@ public class GPGSHelper {
         });
     }
 
-    public static void signInSilently() {
+    public static void signInSilently(boolean force = false) {
         if( !_usingProvider && !_isInitialized ) {
             manualSilentSignIn();
             return;

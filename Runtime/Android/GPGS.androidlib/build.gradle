@@ -1,0 +1,9 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace "com.binouze.gpgs"
+    compileSdkVersion 34
+    defaultConfig {
+        minSdkVersion 21
+    }
+}
