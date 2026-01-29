@@ -25,6 +25,9 @@ import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.common.api.CommonStatusCodes;
 import com.google.android.gms.tasks.Task;
 
+import com.google.android.gms.common.Scopes;
+import com.google.android.gms.common.api.Scope;
+
 // JSON
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -98,7 +101,15 @@ public class GPGSHelper {
                 logDebug("No Provider detected. Forcing Lifecycle events via Instrumentation...");
                 Instrumentation instrum = new Instrumentation();
                 instrum.callActivityOnPause(activity);
-                instrum.callActivityOnResume(activity);
+                // On laisse 100ms au système pour "digérer" la pause
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    try {
+                        logDebug("Step 2: Forcing OnResume...");
+                        instrum.callActivityOnResume(activity);
+                    } catch (Exception e) {
+                        logError("Resume hack failed: " + e.getMessage());
+                    }
+                }, 100);
             } catch (Exception e) {
                 logError("Instrumentation hack failed: " + e.getMessage());
             }
@@ -127,7 +138,7 @@ public class GPGSHelper {
             logDebug("Starting Manual Silent Sign-In via GoogleAuth...");
     
             GoogleSignInOptions.Builder builder = 
-                new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_GAMES_SIGN_IN);
+                new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_GAMES_SIGN_IN).requestScopes(new Scope(Scopes.GAMES_LITE));
     
             if (_requestAuthCode && !_webClientId.isEmpty()) {
                 builder.requestServerAuthCode(_webClientId);
