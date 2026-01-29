@@ -7,16 +7,27 @@ using UnityEngine;
 
 namespace com.binouze.gpgs
 {
+    /// <summary>
+    /// The primary entry point for the Google Play Games Services plugin. 
+    /// Provides access to Authentication, Achievements, and Cloud Save features.
+    /// </summary>
     public static class GooglePlayServices
     {
         private static Action OnSignInResponse;
 
-        [UsedImplicitly]
-        public static bool     IsConnected {get; private set;}
-        [UsedImplicitly]
-        public static GPGSUser User {get; private set;}
-        [UsedImplicitly]
-        public static GPGSSignInStatusCode LastSignInStatus {get; private set;}
+        /// <summary>
+        /// Gets a value indicating whether a user is currently authenticated with Google Play Games.
+        /// </summary>
+        [UsedImplicitly] public static bool                 IsConnected      {get; private set;}
+        /// <summary>
+        /// Gets the currently authenticated user information. 
+        /// Returns null if <see cref="IsConnected"/> is false.
+        /// </summary>
+        [UsedImplicitly] public static GPGSUser             User             {get; private set;}
+        /// <summary>
+        /// Gets the status code of the last attempted Sign-In operation.
+        /// </summary>
+        [UsedImplicitly] public static GPGSSignInStatusCode LastSignInStatus {get; private set;}
         
         static GooglePlayServices()
         {
@@ -41,8 +52,13 @@ namespace com.binouze.gpgs
         }
 
         /// <summary>
-        /// Set the configuration
+        /// Updates the current plugin configuration. 
+        /// Use this if you need to override settings:
+        /// - RequestAuthCode
+        /// - RequestEmail
+        /// - RequestProfile
         /// </summary>
+        /// <param name="configuration">The configuration object containing client IDs and requested scopes.</param>
         [UsedImplicitly]
         public static void SetConfiguration( GPGSConfiguration configuration )
         {
@@ -62,8 +78,9 @@ namespace com.binouze.gpgs
         }
         
         /// <summary>
-        /// Enable or disable logs fromm the plugin
+        /// Enables or disables internal debug logging for both C# and Java layers.
         /// </summary>
+        /// <param name="enabled">True to show logs in the console/Logcat, false to hide them.</param>
         [UsedImplicitly]
         public static void SetLoggingEnabled( bool enabled )
         {
@@ -72,7 +89,7 @@ namespace com.binouze.gpgs
         }
         
         /// <summary>
-        /// Resets all static variables and close opened dialogs if possible
+        /// Resets all local user data and closes any active native Google Play Games dialogs.
         /// </summary>
         [UsedImplicitly]
         public static void ResetStatics()
@@ -102,14 +119,17 @@ namespace com.binouze.gpgs
         private static bool UpgradeSilentSignInIfDeveloperError;
         
         /// <summary>
-        /// Start GPGS Sign In process
+        /// Initiates the Google Play Games authentication flow.
         /// </summary>
+        /// <param name="OnComplete">Callback executed when the authentication process finishes (success or failure).</param>
+        /// <param name="silent">If true, attempts to sign in without showing any UI to the user.</param>
+        /// <param name="silentOnly">If true, the process stops if silent sign-in fails, without prompting for interactive sign-in.</param>
+        /// <param name="upgradeSilentSignInIfDeveloperError">If true and a Developer Error occurs during silent sign-in, it will retry with the interactive UI.</param>
         [UsedImplicitly]
         public static void SignIn( Action OnComplete, bool silent = false, bool silentOnly = false, bool upgradeSilentSignInIfDeveloperError = false )
         {
             if( IsConnected && User != null )
             {
-                // deja connecte
                 OnComplete?.Invoke();
             }
             else
@@ -150,8 +170,10 @@ namespace com.binouze.gpgs
         }
 
         /// <summary>
-        /// Sign Out (it only sign out in the script as this is not possible to sign out from google play services)
+        /// Signs the user out of the local session. 
+        /// Note: This disconnects the app state but does not globally sign the user out of Google Play Services as it's not possible with GPGS v2.
         /// </summary>
+        /// <param name="OnComplete">Callback executed when the sign-out cleanup is finished.</param>
         [UsedImplicitly]
         public static void SignOut( Action OnComplete )
         {
@@ -209,8 +231,9 @@ namespace com.binouze.gpgs
         // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
         
         /// <summary>
-        /// Unlock success.
+        /// Unlocks the achievement with the specified ID.
         /// </summary>
+        /// <param name="achievementId">The unique ID of the achievement from the Google Play Console.</param>
         [UsedImplicitly]
         public static void UnlockAchievement(string achievementId)
         {
@@ -224,8 +247,10 @@ namespace com.binouze.gpgs
         }
         
         /// <summary>
-        /// Increment success progress.
+        /// Increments an incremental achievement by the given number of steps.
         /// </summary>
+        /// <param name="achievementId">The unique ID of the achievement.</param>
+        /// <param name="increment">The number of steps to add to the current progress.</param>
         [UsedImplicitly]
         public static void IncrementAchievement( string achievementId, int increment )
         {
@@ -239,8 +264,10 @@ namespace com.binouze.gpgs
         }
         
         /// <summary>
-        /// set success progress.
+        /// Directly sets the progress of an incremental achievement to a specific number of steps.
         /// </summary>
+        /// <param name="achievementId">The unique ID of the achievement.</param>
+        /// <param name="steps">The total number of steps to set for the current user.</param>
         [UsedImplicitly]
         public static void SetStepsAchievement( string achievementId, int steps )
         {
@@ -254,7 +281,7 @@ namespace com.binouze.gpgs
         }
 
         /// <summary>
-        /// Show GPGS Achievement UI
+        /// Opens the native Google Play Games overlay to display the user's achievements.
         /// </summary>
         [UsedImplicitly]
         public static void ShowAchievementsUI()
@@ -275,11 +302,11 @@ namespace com.binouze.gpgs
 
 
         /// <summary>
-        /// Save a game state to the cloud
+        /// Saves a data string to the Google Play Cloud Save service (Snapshots).
         /// </summary>
-        /// <param name="saveName">the save name to save</param>
-        /// <param name="strData">the data to send to the cloud</param>
-        /// <param name="callback">the callback to know when operation complete with the success info</param>
+        /// <param name="saveName">The filename of the snapshot.</param>
+        /// <param name="strData">The data string (usually JSON) to store.</param>
+        /// <param name="callback">A callback invoked with a boolean indicating if the save was successful.</param>
         [UsedImplicitly]
         public static void SaveToCloud( string saveName, string strData, Action<bool> callback )
         {
@@ -294,10 +321,10 @@ namespace com.binouze.gpgs
         }
 
         /// <summary>
-        /// Load a game state from the cloud
+        /// Retrieves a data string from the Google Play Cloud Save service (Snapshots).
         /// </summary>
-        /// <param name="saveName">the save name to retrieve</param>
-        /// <param name="callback">an action to get the result (bool succes, string strDatas)</param>
+        /// <param name="saveName">The filename of the snapshot to read.</param>
+        /// <param name="callback">A callback invoked with a boolean (success) and the retrieved data string.</param>
         [UsedImplicitly]
         public static  void LoadFromCloud( string saveName, Action<bool, string> callback )
         {

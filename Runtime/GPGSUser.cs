@@ -19,20 +19,23 @@ namespace com.binouze.gpgs
         public string IdToken { get; internal set; }
 
         /// <summary> Display Name.</summary>
+        /// <remarks>null by default, but you can set it if you use the authCode to get profile infos</remarks>
         public string DisplayName { get; internal set; }
 
         /// <summary> Given Name.</summary>
+        /// <remarks>null by default, but you can set it if you use the authCode to get profile infos</remarks>
         public string GivenName { get; internal set; }
 
         /// <summary> Family Name.</summary>
+        /// <remarks>null by default, but you can set it if you use the authCode to get profile infos</remarks>
         public string FamilyName { get; internal set; }
 
         /// <summary> Profile photo</summary>
-        /// <remarks> Can be null if the profile is not requested,
-        /// or none set.</remarks>
+        /// <remarks>null by default, but you can set it if you use the authCode to get profile infos</remarks>
         public string PhotoUrl { get; internal set; }
 
         /// <summary> User ID</summary>
+        /// <remarks>null by default, but you can set it if you use the authCode to get profile infos</remarks>
         public string UserId { get; internal set; }
 
         ///<summary>User ID PlaysGameServices</summary>
