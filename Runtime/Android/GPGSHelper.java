@@ -81,9 +81,9 @@ public class GPGSHelper {
         
         // Si autologinEnabled, le SDK est déjà initialisé par le Provider au démarrage de l'app.
         _usingProvider = autologinEnabled;
-        /*if(_usingProvider) {
+        if(_usingProvider) {
             _isInitialized = true;
-        }*/
+        }
 
         logDebug("Configured. WebClientId set. ProviderEnabled: " + _usingProvider);
     }
@@ -332,7 +332,7 @@ public class GPGSHelper {
     
         // Si on utilise le Provider, pas besoin de hack.
         // On ne fait le hack Instrumentation que si le Provider a été supprimé.
-        // if (!_usingProvider) {
+        if (!_usingProvider) {
             try {
                 logDebug("No Provider detected. Forcing Lifecycle events via Instrumentation...");
                 Instrumentation instrum = new Instrumentation();
@@ -348,7 +348,7 @@ public class GPGSHelper {
             } catch (Exception e) {
                 logError("Instrumentation hack failed 1: " + e.getMessage());
             }
-        //}
+        }
         
         return true;
     }

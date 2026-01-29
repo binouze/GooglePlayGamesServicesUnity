@@ -4,13 +4,7 @@ namespace com.binouze.gpgs.Helpers
 {
     public static class GPGSLogger
     {
-        [RuntimeInitializeOnLoadMethod]
-        private static void RuntimeInitializeOnLoad()
-        {
-            Enabled = false;
-        }
-        
-        private static bool Enabled;
+        private static bool Enabled { get; set; }
 
         internal static void SetEnabled( bool enabled )
         {

@@ -16,7 +16,7 @@ namespace com.binouze.gpgs.Android
         public const string JavaClassName = "com.binouze.GPGSHelper";
         private static void LogError( string val )
         {
-            GPGSLogger.Log( $"[GPGSManager] ERROR: {val}" );
+            GPGSLogger.LogError( $"[GPGSManager] ERROR: {val}" );
         }
         #endif
         
@@ -44,7 +44,7 @@ namespace com.binouze.gpgs.Android
             }
             catch( Exception e )
             {
-                LogError( $"SetLoggingEnabled {e}" );
+                LogError( $"SetLoggingEnabled - {e}" );
             }
             #endif
         }
@@ -61,7 +61,7 @@ namespace com.binouze.gpgs.Android
             }
             catch( Exception e )
             {
-                LogError( $"SetConfiguration {e}" );
+                LogError( $"SetConfiguration - {e}" );
             }
             #endif
         }
@@ -82,7 +82,7 @@ namespace com.binouze.gpgs.Android
             }
             catch( Exception e )
             {
-                LogError( $"ResetStatics {e}" );
+                LogError( $"ResetStatics - {e}" );
             }
             #endif
         }
@@ -103,7 +103,7 @@ namespace com.binouze.gpgs.Android
             }
             catch( Exception e )
             {
-                LogError( $"SignIn {e}" );
+                LogError( $"SignIn - {e}" );
             }
             #else
             OnGPGSSignInResult( SUCCESS_RESPONSE );
@@ -122,7 +122,7 @@ namespace com.binouze.gpgs.Android
             }
             catch( Exception e )
             {
-                LogError( $"SignInSilently {e}" );
+                LogError( $"SignInSilently - {e}" );
             }
             #else
             OnGPGSSignInResult( SUCCESS_RESPONSE );
@@ -141,7 +141,7 @@ namespace com.binouze.gpgs.Android
             }
             catch( Exception e )
             {
-                LogError( $"SignOut {e}" );
+                LogError( $"SignOut - {e}" );
             }
             #else
             OnGPGSSignInResult( SUCCESS_SIGN_OUT);
@@ -185,7 +185,7 @@ namespace com.binouze.gpgs.Android
             }
             catch( Exception e )
             {
-                LogError( $"UnlockAchievement {e}" );
+                LogError( $"UnlockAchievement - {e}" );
             }
             #endif
         }
@@ -202,7 +202,7 @@ namespace com.binouze.gpgs.Android
             }
             catch( Exception e )
             {
-                LogError( $"IncrementAchievement {e}" );
+                LogError( $"IncrementAchievement - {e}" );
             }
             #endif
         }
@@ -219,7 +219,7 @@ namespace com.binouze.gpgs.Android
             }
             catch( Exception e )
             {
-                LogError( $"SetStepsAchievement {e}" );
+                LogError( $"SetStepsAchievement - {e}" );
             }
             #endif
         }
@@ -236,7 +236,7 @@ namespace com.binouze.gpgs.Android
             }
             catch( Exception e )
             {
-                LogError( $"ShowAchievementsUI {e}" );
+                LogError( $"ShowAchievementsUI - {e}" );
             }
             #endif
         }
@@ -261,7 +261,7 @@ namespace com.binouze.gpgs.Android
             }
             catch( Exception e )
             {
-                LogError( $"SaveToCloud {e}" );
+                LogError( $"SaveToCloud - {e}" );
                 OnDataSaved = null;
                 callback?.Invoke( false );
             }
@@ -292,11 +292,11 @@ namespace com.binouze.gpgs.Android
             {
                 OnDataRead = callback;
                 using var cls = new AndroidJavaClass(JavaClassName);
-                cls.CallStatic("getCloudSaveDatas");
+                cls.CallStatic("getCloudSaveDatas", saveName);
             }
             catch( Exception e )
             {
-                LogError( $"LoadFromCloud {e}" );
+                LogError( $"LoadFromCloud - {e}" );
                 OnDataRead = null;
                 callback?.Invoke( false, "" );
             }

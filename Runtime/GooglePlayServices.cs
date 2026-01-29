@@ -92,6 +92,10 @@ namespace com.binouze.gpgs
         {
             GPGSLogger.Log( $"[GPGS] {str}" );
         }
+        private static void LogError( string str )
+        {
+            GPGSLogger.LogError( $"[GPGS] ERROR: {str}" );
+        }
 
         private static bool IsSilentSignIn;
         private static bool IsSilentSignInOnly;
@@ -210,7 +214,7 @@ namespace com.binouze.gpgs
         {
             if( !IsConnected )
             {
-                Log( "User is not connected" );
+                LogError( "UnlockAchievement - User is not connected" );
                 return;
             }
             
@@ -225,7 +229,7 @@ namespace com.binouze.gpgs
         {
             if( !IsConnected )
             {
-                Log( "User is not connected" );
+                LogError( "IncrementAchievement - User is not connected" );
                 return;
             }
             
@@ -240,7 +244,7 @@ namespace com.binouze.gpgs
         {
             if( !IsConnected )
             {
-                Log( "User is not connected" );
+                LogError( "SetStepsAchievement - User is not connected" );
                 return;
             }
             
@@ -255,7 +259,7 @@ namespace com.binouze.gpgs
         {
             if( !IsConnected )
             {
-                Log( "User is not connected" );
+                LogError( "ShowAchievementsUI - User is not connected" );
                 return;
             }
             
@@ -279,7 +283,7 @@ namespace com.binouze.gpgs
         {
             if( !IsConnected )
             {
-                Log( "User is not connected" );
+                LogError( "SaveToCloud - User is not connected" );
                 callback?.Invoke( false );
                 return;
             }
@@ -297,7 +301,7 @@ namespace com.binouze.gpgs
         {
             if( !IsConnected )
             {
-                Log( "User is not connected" );
+                LogError( "LoadFromCloud - User is not connected" );
                 callback?.Invoke( false, "not connected" );
                 return;
             }
