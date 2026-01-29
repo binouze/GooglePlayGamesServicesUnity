@@ -95,7 +95,7 @@ public class GPGSHelper {
 
     // --- SIGN IN FLOWS ---
     
-    public static void signInSilently(boolean force) {
+    public static void signInSilently() {
         Activity activity = UnityPlayer.currentActivity;
         
         activity.runOnUiThread(() -> {
