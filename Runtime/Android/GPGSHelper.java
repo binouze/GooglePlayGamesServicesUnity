@@ -73,14 +73,13 @@ public class GPGSHelper {
 
     // --- CONFIGURATION ---
 
-    public static void configure(String webClientId, boolean requestAuthCode, boolean requestEmail, boolean requestProfile, boolean autologinEnabled) {
+    public static void configure( String webClientId, boolean requestAuthCode, boolean requestEmail, boolean requestProfile, boolean autologinEnabled ) {
         _webClientId     = webClientId;
         _requestEmail    = requestEmail;
         _requestAuthCode = requestAuthCode;
         _requestProfile  = requestProfile;
         
-        // Si le provider est activé (autologinEnabled), le SDK est considéré comme 
-        // déjà initialisé par Android au démarrage du processus.
+        // Si autologinEnabled, le SDK est déjà initialisé par le Provider au démarrage de l'app.
         _usingProvider = autologinEnabled;
         if(_usingProvider) {
             _isInitialized = true;
@@ -100,10 +99,13 @@ public class GPGSHelper {
         Activity activity = UnityPlayer.currentActivity;
         
         activity.runOnUiThread(() -> {
-            // Initialisation (skip hack si _usingProvider est true)
+            // initialisation du SDK si c'est pas déjà fait
+            // dans ce cas la on attendra un petit peu avant de faire la suite
             boolean needsDelay = initializeSdk(activity);
     
-            // Définition de la tâche de connexion
+            logDebug("Starting Silent Sign-In...");
+    
+            // définition de la tâche de connexion
             Runnable authTask = () -> {
                 PlayGames.getGamesSignInClient(activity)
                     .isAuthenticated()
@@ -117,7 +119,7 @@ public class GPGSHelper {
                             } else {
                                 logDebug("Silent Sign-In: Not Authenticated.");
                                 _isAuthenticated = false;
-                                int unityCode = mapToUnityStatusCode(CommonStatusCodes.SIGN_IN_REQUIRED);
+                                int unityCode    = mapToUnityStatusCode(CommonStatusCodes.SIGN_IN_REQUIRED);
                                 sendSignInResultToUnity(unityCode, null, null, null);
                             }
                         } else {
@@ -126,9 +128,8 @@ public class GPGSHelper {
                     });
             };
 
-            // BRANCHEMENT : 
-            // Si Provider actif -> Exécution immédiate
-            // Si Provider inactif -> Exécution différée pour laisser le temps au hack init
+            // Si l'init était déjà faite       -> exécution immédiate
+            // Si on vient d'initialiser le SDK -> exécution différée pour laisser le temps au hack init
             if (!needsDelay) {
                 authTask.run();
             } else {
@@ -141,10 +142,13 @@ public class GPGSHelper {
         Activity activity = UnityPlayer.currentActivity;
     
         activity.runOnUiThread(() -> {
+            // initialisation du SDK si c'est pas déjà fait
+            // dans ce cas la on attendra un petit peu avant de faire la suite
             boolean needsDelay = initializeSdk(activity);
             
             logDebug("Starting Interactive Sign-In...");
             
+            // définition de la tâche de connexion
             Runnable signInTask = () -> {
                 PlayGames.getGamesSignInClient(activity)
                     .signIn()
@@ -158,7 +162,7 @@ public class GPGSHelper {
                             } else {
                                 logDebug("Interactive Sign-In: Canceled or Failed.");
                                 _isAuthenticated = false;
-                                int unityCode = mapToUnityStatusCode(CommonStatusCodes.CANCELED);
+                                int unityCode    = mapToUnityStatusCode(CommonStatusCodes.CANCELED);
                                 sendSignInResultToUnity(unityCode, null, null, null);
                             }
                         } else {
@@ -167,7 +171,8 @@ public class GPGSHelper {
                     });
             };
 
-            // BRANCHEMENT :
+            // Si l'init était déjà faite       -> exécution immédiate
+            // Si on vient d'initialiser le SDK -> exécution différée pour laisser le temps au hack init
             if (!needsDelay) {
                 signInTask.run();
             } else {
@@ -201,14 +206,14 @@ public class GPGSHelper {
     private static void processSignInSuccess() {
         Activity activity = UnityPlayer.currentActivity;
 
-        // Si on ne demande pas d'AuthCode, on passe directement à la récupération du profil
+        // si on ne demande pas d'AuthCode, on passe directement à la récupération du profil
         if (!_requestAuthCode) {
             logDebug("AuthCode not requested, fetching player info directly...");
             fetchPlayerInfo(""); // On passe un code vide
             return;
         }
 
-        // Sinon, on procède à la demande d'accès serveur
+        // sinon, on procède à la demande d'accès serveur
         Task<?> task; 
         if( _requestEmail || _requestProfile ) {
             logDebug("Requesting Server Side Access with custom scope...");
