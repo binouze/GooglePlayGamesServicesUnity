@@ -13,7 +13,7 @@ namespace com.binouze.gpgs
         private static string Bouton1;
         private static string Bouton2;
         private static Action Action1;
-        private static Action<string> Action1Input;
+        private static Action<string,string> Action1Input;
         private static Action Action2;
         
         #region static Singleton
@@ -57,7 +57,7 @@ namespace com.binouze.gpgs
             HasDialog = true;
         }
         
-        internal static void ShowInputDialog( string texte, string bouton1, string bouton2 = null, Action<string> action1 = null, Action action2 = null )
+        internal static void ShowInputDialog( string texte, string bouton1, string bouton2 = null, Action<string,string> action1 = null, Action action2 = null )
         {
             GetInstance();
             
@@ -80,6 +80,7 @@ namespace com.binouze.gpgs
         
         private static bool   HasInput;
         private static string InputVal;
+        private static string InputVal2;
         
         private static void DoMyWindow( int windowID )
         {
@@ -92,8 +93,14 @@ namespace com.binouze.gpgs
             {
                 GUILayout.EndHorizontal();
                 
+                GUILayout.Label("Google Id:");
                 GUILayout.BeginHorizontal();
                 InputVal = GUILayout.TextField( InputVal );
+                GUILayout.EndHorizontal();
+                
+                GUILayout.Label("GPGS Id:");
+                GUILayout.BeginHorizontal();
+                InputVal2 = GUILayout.TextField( InputVal2 );
                 GUILayout.EndHorizontal();
                 
                 GUILayout.BeginHorizontal();
@@ -104,7 +111,7 @@ namespace com.binouze.gpgs
                 if( GUILayout.Button( Bouton1 ) )
                 {
                     if( HasInput )
-                        Action1Input?.Invoke(InputVal);
+                        Action1Input?.Invoke(InputVal,InputVal2);
                     else
                         Action1?.Invoke();
                     Close();

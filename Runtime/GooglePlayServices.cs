@@ -108,12 +108,13 @@ namespace com.binouze.gpgs
                 Log( "Calling SignIn" );
 
                 #if UNITY_EDITOR
-                EditorHelper.ShowInputDialog( "connect gpgs ?<br>enter a fake GPGS user id", "yes", "no",
-                    uid =>
+                EditorHelper.ShowInputDialog( "connect gpgs ?<br>enter a fake Google userID and GPGS userID", "yes", "no",
+                    ( uid, gpgsId ) =>
                     {
-                        OnSignInResponse      = OnComplete;
-                        IsSilentSignIn        = false;
-                        GPGSManager.FAKE_UID = uid;
+                        OnSignInResponse         = OnComplete;
+                        IsSilentSignIn           = false;
+                        GPGSManager.FAKE_UID     = uid;
+                        GPGSManager.FAKE_GPGS_ID = gpgsId;
                         GPGSManager.GetInstance().SignIn();
                     },
                     () =>
@@ -161,6 +162,7 @@ namespace com.binouze.gpgs
                 User = user;
 
                 Log( $"IDToken:     {User.IdToken}" );
+                Log( $"GPGSId:      {User.GPGSId}" );
                 Log( $"UserID:      {User.UserId}" );
                 Log( $"DisplayName: {User.DisplayName}" );
                 Log( $"GivenName:   {User.GivenName}" );

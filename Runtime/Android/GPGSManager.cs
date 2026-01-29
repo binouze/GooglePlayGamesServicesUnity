@@ -10,12 +10,13 @@ namespace com.binouze.gpgs.Android
     public class GPGSManager : MonoBehaviour
     {
         #if UNITY_EDITOR
-        private static string SUCCESS_RESPONSE => "{\"result\":{\"Status\":0,\"Email\":\"fakeuser@gmail.com\",\"FamilyName\":\"FAKE\",\"UserId\":\""+FAKE_UID+"\",\"DisplayName\":\"User FAKE\",\"GivenName\":\"User\",\"PhotoUrl\":\"\"}}";
+        private static string SUCCESS_RESPONSE => "{\"result\":{\"Status\":0,\"Email\":\"fakeuser@gmail.com\",\"FamilyName\":\"FAKE\",\"GPGSId\":\""+FAKE_GPGS_ID+"\",\"UserId\":\""+FAKE_UID+"\",\"DisplayName\":\"User FAKE\",\"GivenName\":\"User\",\"PhotoUrl\":\"\"}}";
         #else
         public const string JavaClassName = "com.binouze.GPGSHelper";
         #endif
         
         public static string FAKE_UID;
+        public static string FAKE_GPGS_ID;
         
         internal static Action<GPGSUser> OnAuthenticationFinished;
         private Action<bool>             OnDataSaved;
