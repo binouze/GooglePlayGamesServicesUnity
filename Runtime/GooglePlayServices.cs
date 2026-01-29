@@ -82,7 +82,7 @@ namespace com.binouze.gpgs
             IsSilentSignInOnly = true;
             OnSignInResponse   = null;
             
-            GPGSManager.GetInstance().CloseDialog();
+            GPGSManager.GetInstance().ResetStatics();
         }
         private static void Log( string str )
         {

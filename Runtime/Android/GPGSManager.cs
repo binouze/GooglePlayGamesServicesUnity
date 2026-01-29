@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using com.binouze.gpgs.Helpers;
+using UnityEditor;
 using UnityEngine;
 
 namespace com.binouze.gpgs.Android
@@ -16,7 +17,9 @@ namespace com.binouze.gpgs.Android
         
         public static string FAKE_UID;
         
-        public static Action<GPGSUser> OnAuthenticationFinished;
+        internal static Action<GPGSUser> OnAuthenticationFinished;
+        private Action<bool>             OnDataSaved;
+        private Action<bool,string>      OnDataRead;
 
         
         private static void Log( string val )
@@ -51,15 +54,22 @@ namespace com.binouze.gpgs.Android
         }
         
         
-        public void CloseDialog()
+        public void ResetStatics()
         {
-            Log( "Calling CloseDialog" );
-            
+            Log( "Calling ResetStatics" );
+
+            OnDataRead  = null;
+            OnDataSaved = null;
+
             #if !UNITY_EDITOR
             using var cls = new AndroidJavaClass(JavaClassName);
             cls.CallStatic("closeDialog");
             #endif
         }
+        
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+        // ---                                                         S I G N   I N   /   S I G N   O U T                                                             ---
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
         
         public void SignIn()
         {
@@ -95,17 +105,6 @@ namespace com.binouze.gpgs.Android
             #endif
         }
         
-        public void Disconnect()
-        {
-            Log( "Calling Disconnect" );
-            #if !UNITY_EDITOR
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("disconnect");
-            #else
-            OnGPGSSignInResult( "{\"deco\":\"ok\"}" );
-            #endif
-        }
-        
         /// <summary>
         /// La methode appelee par le plugin natif pour renvoyer les resultats de login
         /// </summary>
@@ -118,16 +117,18 @@ namespace com.binouze.gpgs.Android
             if( datas is Dictionary<string, object> dic )
             {
                 var signedInUser = GPGSUser.FromObject( dic.GetDictionary( "result" ) );
-                OnAuthenticationFinished( signedInUser );
+                OnAuthenticationFinished?.Invoke( signedInUser );
             }
             else
             {
-                OnAuthenticationFinished( new GPGSUser{Status = GPGSSignInStatusCode.Error} );
+                OnAuthenticationFinished?.Invoke( new GPGSUser{Status = GPGSSignInStatusCode.Error} );
             }
         }
 
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+        // ---                                                             A C H I E V E M E N T S                                                                     ---
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
         
-        // -- ACHIEVEMENTS
         
         public void UnlockAchievement( string achievementId )
         {
@@ -162,6 +163,63 @@ namespace com.binouze.gpgs.Android
         }
         
         
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+        // ---                                                               C L O U D   S A V E                                                                       ---
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+        
+        // -- WRITE --
+        
+        public void SaveToCloud( string saveName, string strData, Action<bool> callback )
+        {
+            #if !UNITY_EDITOR
+            OnDataSaved   = callback;
+            using var cls = new AndroidJavaClass(JavaClassName);
+            cls.CallStatic("setCloudSaveDatas",saveName,strData);
+            #else
+            EditorPrefs.SetString( $"GPGS_DATA_{saveName}", strData );
+            callback?.Invoke( true );
+            #endif
+        }
+
+        public void OnGPGSCloudSaveWriteResult( string data )
+        {
+            Log( $"OnGPGSCloudSaveWriteResult Result: {data}" );
+            var status = OnDataSaved.GetInt(-10);
+            OnDataSaved?.Invoke( status == 0 );
+        }
+        
+        
+        // -- READ --
+
+        public void LoadFromCloud( string saveName, Action<bool,string> callback )
+        {
+            #if !UNITY_EDITOR
+            OnDataRead = callback;
+            using var cls = new AndroidJavaClass(JavaClassName);
+            cls.CallStatic("getCloudSaveDatas");
+            #else
+            var data = EditorPrefs.GetString( $"GPGS_DATA_{saveName}" );
+            callback?.Invoke( true, data );
+            #endif
+        }
+        
+        public void OnGPGSCloudSaveReadResult( string data )
+        {
+            Log( $"OnGPGSCloudSaveReadResult Result: {data}" );
+            
+            // si on a un entier negatif c'est que c'est une erreur
+            if( int.TryParse(data, out var errorCode) && errorCode < 0 )
+            {
+                OnDataRead?.Invoke( false, data );
+                return; 
+            }
+            
+            OnDataRead?.Invoke( true, data );
+        }
+        
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+        // ---                                                                 S I N G L E T O N                                                                       ---
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
         private static GPGSManager _instance;
         public static GPGSManager GetInstance()

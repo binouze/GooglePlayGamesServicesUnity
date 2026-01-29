@@ -16,6 +16,12 @@ import com.google.android.gms.games.PlayGamesSdk;
 import com.google.android.gms.games.gamessignin.AuthScope;
 import com.google.android.gms.games.gamessignin.AuthResponse;
 
+// GMAS Snapshots
+import com.google.android.gms.games.SnapshotsClient;
+import com.google.android.gms.games.snapshot.Snapshot;
+import com.google.android.gms.games.snapshot.SnapshotMetadataChange;
+import com.google.android.gms.games.snapshot.SnapshotMetadata;
+
 // GMS Auth & Common
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.common.api.CommonStatusCodes;
@@ -25,14 +31,18 @@ import com.google.android.gms.tasks.Task;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 public class GPGSHelper {
 
-    private static final String TAG             = "GPGSHelper";
-    private static final String CALLBACK_OBJECT = "GPGSManagerObject";
-    private static final String CALLBACK_METHOD = "OnGPGSSignInResult";
+    private static final String TAG                              = "GPGSHelper";
+    private static final String CALLBACK_OBJECT                  = "GPGSManagerObject";
+    private static final String CALLBACK_METHOD_SIGN_IN          = "OnGPGSSignInResult";
+    private static final String CALLBACK_METHOD_CLOUD_SAVE_READ  = "OnGPGSCloudSaveReadResult";
+    private static final String CALLBACK_METHOD_CLOUD_SAVE_WRITE = "OnGPGSCloudSaveWriteResult";
 
     // --- CONFIGURATION STATE ---
     
@@ -41,11 +51,11 @@ public class GPGSHelper {
     private static boolean _requestAuthCode = false; 
     private static boolean _requestProfile  = false; 
     private static boolean _debugLog        = false;
+    private static boolean _usingProvider   = true;
     
     // Etat Runtime
     private static boolean _isAuthenticated = false;
     private static boolean _isInitialized   = false;
-    private static boolean _usingProvider   = true; // Par défaut true, écrasé par configure
 
     // --- LOGGING ---
 
@@ -79,36 +89,10 @@ public class GPGSHelper {
         logDebug("Configured. WebClientId set. ProviderEnabled: " + _usingProvider);
     }
 
-    // --- INIT ---
 
-    private static boolean initializeSdk(Activity activity) {
-        if (_isInitialized) return false;
-    
-        PlayGamesSdk.initialize(activity);
-        _isInitialized = true;
-    
-        // Si on utilise le Provider, pas besoin de hack.
-        // On ne fait le hack Instrumentation que si le Provider a été supprimé.
-        if (!_usingProvider) {
-            try {
-                logDebug("No Provider detected. Forcing Lifecycle events via Instrumentation...");
-                Instrumentation instrum = new Instrumentation();
-                instrum.callActivityOnPause(activity);
-                // On laisse 100ms au système pour "digérer" la pause
-                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                    try {
-                        instrum.callActivityOnResume(activity);
-                    } catch (Exception e) {
-                        logError("Instrumentation hack failed 2: " + e.getMessage());
-                    }
-                }, 100);
-            } catch (Exception e) {
-                logError("Instrumentation hack failed 1: " + e.getMessage());
-            }
-        }
-        
-        return true;
-    }
+    // -------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    // ---                                                         S I G N   I N   /   S I G N   O U T                                                                 ---
+    // -------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     // --- SIGN IN FLOWS ---
     
@@ -304,14 +288,13 @@ public class GPGSHelper {
             }
 
             jsonRoot.put("result", jsonResult);
-            UnityPlayer.UnitySendMessage(CALLBACK_OBJECT, CALLBACK_METHOD, jsonRoot.toString());
+            UnityPlayer.UnitySendMessage(CALLBACK_OBJECT, CALLBACK_METHOD_SIGN_IN, jsonRoot.toString());
 
         } catch (JSONException e) {
             logError("JSON Error: " + e.getMessage());
-            UnityPlayer.UnitySendMessage(CALLBACK_OBJECT, CALLBACK_METHOD, "{\"result\":{\"Status\":9}}");
+            UnityPlayer.UnitySendMessage(CALLBACK_OBJECT, CALLBACK_METHOD_SIGN_IN, "{\"result\":{\"Status\":9}}");
         }
     }
-    
 
     // --- SIGN OUT ---
 
@@ -321,7 +304,6 @@ public class GPGSHelper {
         sendSignInResultToUnity(-2, null, null, null); 
     }
    
-
     public static void closeDialog() {
         Activity activity = UnityPlayer.currentActivity;
         activity.runOnUiThread(() -> {
@@ -333,10 +315,38 @@ public class GPGSHelper {
             }
         });
     }
-
     
+    // --- INIT ---
     
+    // manually initialize the SDK if the autoSign in is disabled 
+    private static boolean initializeSdk(Activity activity) {
+        if (_isInitialized) return false;
     
+        PlayGamesSdk.initialize(activity);
+        _isInitialized = true;
+    
+        // Si on utilise le Provider, pas besoin de hack.
+        // On ne fait le hack Instrumentation que si le Provider a été supprimé.
+        if (!_usingProvider) {
+            try {
+                logDebug("No Provider detected. Forcing Lifecycle events via Instrumentation...");
+                Instrumentation instrum = new Instrumentation();
+                instrum.callActivityOnPause(activity);
+                // On laisse 100ms au système pour "digérer" la pause
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    try {
+                        instrum.callActivityOnResume(activity);
+                    } catch (Exception e) {
+                        logError("Instrumentation hack failed 2: " + e.getMessage());
+                    }
+                }, 100);
+            } catch (Exception e) {
+                logError("Instrumentation hack failed 1: " + e.getMessage());
+            }
+        }
+        
+        return true;
+    }
     
     // --- ERROR MAPPING HELPER ---
     
@@ -376,9 +386,13 @@ public class GPGSHelper {
                 return 9; // Error (Generic)
         }
     }
+    
+    // -------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    // ---                                                               A C H I E V E M E N T S                                                                       ---
+    // -------------------------------------------------------------------------------------------------------------------------------------------------------------------
         
         
-    // --- ACHIEVEMENTS ---
+    // --- UNLOCK ---
     
     public static void unlockAchievement(String achievementId) {
         if( !_isAuthenticated )
@@ -398,6 +412,8 @@ public class GPGSHelper {
         });
     }
 
+    // --- SHOW ---
+
     public static void showAchievements() {
         if( !_isAuthenticated )
         {
@@ -415,6 +431,8 @@ public class GPGSHelper {
                 .addOnFailureListener(e -> logError("Show UI failed: " + e.getMessage()));
         });
     }
+    
+    // --- INCREMENT ---
     
     public static void incrementAchievement(String achievementId, int steps) {
         if (!_isAuthenticated) {
@@ -434,6 +452,8 @@ public class GPGSHelper {
         });
     }
     
+    // --- SET STEP ---
+    
     public static void setStepAchievement(String achievementId, int steps) {
         if (!_isAuthenticated) {
             logDebug("SetStep Achievements FAIL, user not signed in");
@@ -450,5 +470,122 @@ public class GPGSHelper {
                 logError("SetStep failed: " + e.getMessage());
             }
         });
+    }
+    
+    // -------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    // ---                                                               C L O U D   S A V E                                                                           ---
+    // -------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+    // --- CLOUD SAVE: WRITE ---
+
+    public static void setCloudSaveDatas(String saveFileName, String data) {
+        Activity activity = UnityPlayer.currentActivity;
+        
+        activity.runOnUiThread(() -> {
+            // 1. Accès au client Snapshots
+            SnapshotsClient snapshotsClient = PlayGames.getSnapshotsClient(activity);
+
+            // 2. Ouverture du fichier (Ou création si inexistant)
+            // RESOLUTION_POLICY_MOST_RECENTLY_MODIFIED : En cas de conflit, on garde le plus récent.
+            snapshotsClient.open(saveFileName, true, SnapshotsClient.RESOLUTION_POLICY_MOST_RECENTLY_MODIFIED)
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        logError("Cloud Save: Open Failed. " + task.getException());
+                        sendCloudSaveStatusToUnity("-1");
+                        return;
+                    }
+
+                    // 3. Le fichier est ouvert, on récupère le Snapshot
+                    Snapshot snapshot = task.getResult().getData();
+                    
+                    if (snapshot == null) {
+                        logError("Cloud Save: Snapshot is null despite success.");
+                        sendCloudSaveStatusToUnity("-3");
+                        return;
+                    }
+
+                    // 4. Écriture des données
+                    try {
+                        // On écrit les nouvelles données
+                        snapshot.getSnapshotContents().writeBytes(data.getBytes(StandardCharsets.UTF_8));
+
+                        // 5. Commit (Validation et Fermeture)
+                        SnapshotMetadataChange metadataChange = new SnapshotMetadataChange.Builder()
+                                .setDescription("Auto-save")
+                                .build();
+
+                        snapshotsClient.commitAndClose(snapshot, metadataChange)
+                                .addOnCompleteListener(commitTask -> {
+                                    if (commitTask.isSuccessful()) {
+                                        logDebug("Cloud Save: SUCCESS!");
+                                        sendCloudSaveStatusToUnity("0");
+                                    } else {
+                                        logError("Cloud Save: Commit Failed. " + commitTask.getException());
+                                        sendCloudSaveStatusToUnity("-4");
+                                    }
+                                });
+
+                    } catch (IOException e) {
+                        logError("Cloud Save: IO Error. " + e.getMessage());
+                        sendCloudSaveStatusToUnity("-2");
+                    }
+                });
+        });
+    }
+
+    // --- CLOUD SAVE: READ ---
+
+    public static void getCloudSaveDatas(String saveFileName) {
+        Activity activity = UnityPlayer.currentActivity;
+
+        activity.runOnUiThread(() -> {
+            SnapshotsClient snapshotsClient = PlayGames.getSnapshotsClient(activity);
+
+            // 1. Ouverture en mode lecture
+            snapshotsClient.open(saveFileName, true, SnapshotsClient.RESOLUTION_POLICY_MOST_RECENTLY_MODIFIED)
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        logError("Cloud Load: Open Failed. " + task.getException());
+                        // On renvoie le code d'erreur -1
+                        sendCloudDataToUnity("-1"); 
+                        return;
+                    }
+
+                    // 2. Récupération du Snapshot
+                    Snapshot snapshot = task.getResult().getData(); // getData() gère le conflit automatiquement ici
+                    
+                    // Cas spécial : Le fichier vient d'être créé mais est vide
+                    if (snapshot == null) {
+                        sendCloudDataToUnity("");
+                        return;
+                    }
+
+                    // 3. Lecture des données
+                    try {
+                        byte[] rawData = snapshot.getSnapshotContents().readFully();
+                        if (rawData != null && rawData.length > 0) {
+                            String dataStr = new String(rawData, StandardCharsets.UTF_8);
+                            logDebug("Cloud Load: SUCCESS. Data len: " + dataStr.length());
+                            sendCloudDataToUnity(dataStr);
+                        } else {
+                            logDebug("Cloud Load: File is empty (New game).");
+                            sendCloudDataToUnity("");
+                        }
+                    } catch (IOException e) {
+                        logError("Cloud Load: IO Exception. " + e.getMessage());
+                        sendCloudDataToUnity(-2);
+                    }
+                });
+        });
+    }
+    
+    // retourner les données CloudSave au client Unity 
+    private static void sendCloudDataToUnity(String data) {
+        UnityPlayer.UnitySendMessage(CALLBACK_OBJECT, CALLBACK_METHOD_CLOUD_SAVE_READ, data);
+    }
+    // retourner le status de la sauvegarde CloudSave au client Unity
+    private static void sendCloudSaveStatusToUnity(String data) {
+        UnityPlayer.UnitySendMessage(CALLBACK_OBJECT, CALLBACK_METHOD_CLOUD_SAVE_WRITE, data);
     }
 }
