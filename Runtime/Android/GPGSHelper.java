@@ -16,18 +16,6 @@ import com.google.android.gms.games.PlayGamesSdk;
 import com.google.android.gms.games.gamessignin.AuthScope;
 import com.google.android.gms.games.gamessignin.AuthResponse;
 
-// GMS Auth & Common
-import com.google.android.gms.auth.api.signin.GoogleSignIn;
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
-import com.google.android.gms.auth.api.signin.GoogleSignInClient;
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
-import com.google.android.gms.common.api.ApiException;
-import com.google.android.gms.common.api.CommonStatusCodes;
-import com.google.android.gms.tasks.Task;
-
-import com.google.android.gms.common.Scopes;
-import com.google.android.gms.common.api.Scope;
-
 // JSON
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -61,11 +49,11 @@ public class GPGSHelper {
     }
 
     private static void logDebug(String msg) {
-        if (_debugLog) Log.d(TAG, ":: " + msg);
+        if (_debugLog) Log.d(TAG, "["+TAG+"] " + msg);
     }
 
     private static void logError(String msg) {
-        Log.e(TAG, ":: " + msg);
+        Log.e(TAG, "["+TAG+"] " + msg);
     }
 
     // --- CONFIGURATION ---
@@ -104,14 +92,13 @@ public class GPGSHelper {
                 // On laisse 100ms au système pour "digérer" la pause
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                     try {
-                        logDebug("Step 2: Forcing OnResume...");
                         instrum.callActivityOnResume(activity);
                     } catch (Exception e) {
-                        logError("Resume hack failed: " + e.getMessage());
+                        logError("Instrumentation hack failed 2: " + e.getMessage());
                     }
                 }, 100);
             } catch (Exception e) {
-                logError("Instrumentation hack failed: " + e.getMessage());
+                logError("Instrumentation hack failed 1: " + e.getMessage());
             }
         }
         
@@ -119,68 +106,8 @@ public class GPGSHelper {
     }
 
     // --- SIGN IN FLOWS ---
-
-    /**
-     * Méthode de secours utilisant l'API Auth directement.
-     * Utile uniquement si le Provider est désactivé/supprimé.
-     */
-    public static void manualSilentSignIn() {
-        // Sécurité : Si le provider est actif, on redirige vers la méthode standard
-        if (_usingProvider) {
-            logDebug("Provider enabled, redirecting manualSilentSignIn to standard signInSilently");
-            signInSilently();
-            return;
-        }
-
-        Activity activity = UnityPlayer.currentActivity;
-        
-        activity.runOnUiThread(() -> {
-            logDebug("Starting Manual Silent Sign-In via GoogleAuth...");
-    
-            GoogleSignInOptions.Builder builder = 
-                new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_GAMES_SIGN_IN).requestScopes(new Scope(Scopes.GAMES_LITE));
-    
-            /*if (_requestAuthCode && !_webClientId.isEmpty()) {
-                builder.requestServerAuthCode(_webClientId);
-            }
-            if (_requestEmail) builder.requestEmail();
-            if (_requestProfile) builder.requestProfile();*/
-    
-            GoogleSignInOptions options = builder.build();
-            GoogleSignInClient signInClient = GoogleSignIn.getClient(activity, options);
-    
-            signInClient.silentSignIn().addOnCompleteListener(activity, task -> {
-                if (task.isSuccessful()) {
-                    GoogleSignInAccount account = task.getResult();
-                    logDebug("GoogleAuth Silent Success! Account: " + account.getEmail());
-    
-                    // On attache le SDK Games maintenant que Auth est réussi
-                    /*PlayGamesSdk.initialize(activity);
-                    _isInitialized = true;
-                    _isAuthenticated = true;*/
-                    
-                    // On lance le flux standard pour récupérer les infos Joueur
-                    // On appelle directement la logique de succès car on sait qu'on est connecté
-                    signInSilently(true); 
-                } else {
-                    logDebug("GoogleAuth Silent Fail: " + task.getException());
-                    _isAuthenticated = false;
-                    sendSignInResultToUnity(4, null, null, null); // 4 = SignInRequired
-                }
-            });
-        });
-    }
-    
-    public static void signInSilently() {
-        signInSilently(false);
-    }
     
     public static void signInSilently(boolean force) {
-        if( !_usingProvider && !_isInitialized && !force ) {
-            manualSilentSignIn();
-            return;
-        }
-    
         Activity activity = UnityPlayer.currentActivity;
         
         activity.runOnUiThread(() -> {
