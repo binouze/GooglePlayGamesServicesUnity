@@ -14,7 +14,9 @@ namespace com.binouze.gpgs
         [UsedImplicitly]
         public static bool     IsConnected {get; private set;}
         [UsedImplicitly]
-        public static GPGSUser User        {get; private set;}
+        public static GPGSUser User {get; private set;}
+        [UsedImplicitly]
+        public static GPGSSignInStatusCode LastSignInStatus {get; private set;}
         
         static GooglePlayServices()
         {
@@ -82,6 +84,7 @@ namespace com.binouze.gpgs
             IsSilentSignIn     = false;
             IsSilentSignInOnly = true;
             OnSignInResponse   = null;
+            LastSignInStatus   = GPGSSignInStatusCode.SignoutSuccess;
             
             GPGSManager.GetInstance().ResetStatics();
         }
@@ -157,6 +160,9 @@ namespace com.binouze.gpgs
         private static void OnAuthenticationFinished( GPGSUser user )
         {
             Log( $"OnAuthenticationFinished Status: {user?.Status}" );
+
+            // keep the last sign in status code
+            LastSignInStatus = user?.Status ?? GPGSSignInStatusCode.Error;
             
             if( user is { Status: GPGSSignInStatusCode.Success or GPGSSignInStatusCode.SuccessCached } )
             {
@@ -175,24 +181,18 @@ namespace com.binouze.gpgs
 
                 IsConnected = true;
             }
-
-            // s'assurer que le user soit null si on est pas connecté
-            if( !IsConnected )
-                User = null;
-
-            if( IsConnected && User == null )
+            else
             {
-                Log( "RESULT WITHOUT USER:: NOT CONNECTED" );
                 IsConnected = false;
+                User        = null;
             }
 
-            // si c'etait un login silencieux echoué, on tente un login normal
+            // if this is a silent login, and we can upgrade it to a real login, we start a manual sign in
             if( !IsConnected && IsSilentSignIn && !IsSilentSignInOnly )
             {
-                SignIn( OnSignInResponse, false );
+                SignIn( OnSignInResponse );
                 return;
             }
-            
             
             // invoke the callback
             OnSignInResponse?.Invoke();
