@@ -99,12 +99,13 @@ namespace com.binouze.gpgs
 
         private static bool IsSilentSignIn;
         private static bool IsSilentSignInOnly;
+        private static bool UpgradeSilentSignInIfDeveloperError;
         
         /// <summary>
         /// Start GPGS Sign In process
         /// </summary>
         [UsedImplicitly]
-        public static void SignIn( Action OnComplete, bool silent = false, bool silentOnly = false )
+        public static void SignIn( Action OnComplete, bool silent = false, bool silentOnly = false, bool upgradeSilentSignInIfDeveloperError = false )
         {
             if( IsConnected && User != null )
             {
@@ -134,8 +135,9 @@ namespace com.binouze.gpgs
                 
                 if( silent )
                 {
-                    IsSilentSignIn     = true;
-                    IsSilentSignInOnly = silentOnly;
+                    IsSilentSignIn                      = true;
+                    IsSilentSignInOnly                  = silentOnly;
+                    UpgradeSilentSignInIfDeveloperError = upgradeSilentSignInIfDeveloperError;
                     GPGSManager.GetInstance().SignInSilently();
                 }
                 else
@@ -192,7 +194,7 @@ namespace com.binouze.gpgs
             }
 
             // if this is a silent login, and we can upgrade it to a real login, we start a manual sign in
-            if( !IsConnected && IsSilentSignIn && !IsSilentSignInOnly )
+            if( !IsConnected && IsSilentSignIn && (!IsSilentSignInOnly || (UpgradeSilentSignInIfDeveloperError && LastSignInStatus == GPGSSignInStatusCode.DeveloperError)) )
             {
                 SignIn( OnSignInResponse );
                 return;
