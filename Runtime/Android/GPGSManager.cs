@@ -11,8 +11,13 @@ namespace com.binouze.gpgs.Android
     {
         #if UNITY_EDITOR
         private static string SUCCESS_RESPONSE => "{\"result\":{\"Status\":0,\"Email\":\"fakeuser@gmail.com\",\"FamilyName\":\"FAKE\",\"GPGSId\":\""+FAKE_GPGS_ID+"\",\"UserId\":\""+FAKE_UID+"\",\"DisplayName\":\"User FAKE\",\"GivenName\":\"User\",\"PhotoUrl\":\"\"}}";
+        private const  string SUCCESS_SIGN_OUT =  "{\"result\":{\"Status\":-2}}";
         #else
         public const string JavaClassName = "com.binouze.GPGSHelper";
+        private static void LogError( string val )
+        {
+            GPGSLogger.Log( $"[GPGSManager] ERROR: {val}" );
+        }
         #endif
         
         public static string FAKE_UID;
@@ -24,10 +29,6 @@ namespace com.binouze.gpgs.Android
 
         
         private static void Log( string val )
-        {
-            GPGSLogger.Log( $"[GPGSManager] {val}" );
-        }
-        private static void LogError( string val )
         {
             GPGSLogger.Log( $"[GPGSManager] {val}" );
         }
@@ -93,6 +94,7 @@ namespace com.binouze.gpgs.Android
         public void SignIn()
         {
             Log( "Calling SignIn" );
+            
             #if !UNITY_EDITOR
             try
             {
@@ -111,6 +113,7 @@ namespace com.binouze.gpgs.Android
         public void SignInSilently()
         {
             Log( "Calling SignInSilently" );
+            
             #if !UNITY_EDITOR
             try
             {
@@ -141,7 +144,7 @@ namespace com.binouze.gpgs.Android
                 LogError( $"SignOut {e}" );
             }
             #else
-            OnGPGSSignInResult( "{\"deco\":\"ok\"}" );
+            OnGPGSSignInResult( SUCCESS_SIGN_OUT);
             #endif
         }
         
@@ -172,6 +175,8 @@ namespace com.binouze.gpgs.Android
         
         public void UnlockAchievement( string achievementId )
         {
+            Log( $"Calling UnlockAchievement {achievementId}" );
+            
             #if !UNITY_EDITOR
             try
             {
@@ -187,6 +192,8 @@ namespace com.binouze.gpgs.Android
         
         public void IncrementAchievement( string achievementId, int increment )
         {
+            Log( $"Calling IncrementAchievement {achievementId} {increment}" );
+            
             #if !UNITY_EDITOR
             try
             {
@@ -202,6 +209,8 @@ namespace com.binouze.gpgs.Android
         
         public void SetStepsAchievement( string achievementId, int steps )
         {
+            Log( $"Calling SetStepsAchievement {achievementId} {steps}" );
+            
             #if !UNITY_EDITOR
             try
             {
@@ -217,6 +226,8 @@ namespace com.binouze.gpgs.Android
         
         public void ShowAchievementsUI()
         {
+            Log( "Calling ShowAchievementsUI" );
+            
             #if !UNITY_EDITOR
             try
             {
@@ -239,6 +250,8 @@ namespace com.binouze.gpgs.Android
         
         internal void SaveToCloud( string saveName, string strData, Action<bool> callback )
         {
+            Log( $"Calling SaveToCloud {saveName} {strData}" );
+            
             #if !UNITY_EDITOR
             try
             {
@@ -261,6 +274,7 @@ namespace com.binouze.gpgs.Android
         public void OnGPGSCloudSaveWriteResult( string data )
         {
             Log( $"OnGPGSCloudSaveWriteResult Result: {data}" );
+            
             var status = OnDataSaved.GetInt(-10);
             OnDataSaved?.Invoke( status == 0 );
             OnDataSaved = null;
@@ -271,6 +285,8 @@ namespace com.binouze.gpgs.Android
 
         internal void LoadFromCloud( string saveName, Action<bool,string> callback )
         {
+            Log( $"Calling LoadFromCloud {saveName}" );
+            
             #if !UNITY_EDITOR
             try
             {
@@ -314,14 +330,14 @@ namespace com.binouze.gpgs.Android
         private static GPGSManager _instance;
         public static GPGSManager GetInstance()
         {
-            if( _instance == null )
+            if( !_instance )
             {
                 _instance = FindAnyObjectByType<GPGSManager>();
-                if( _instance == null )
+                if( !_instance )
                 {
                     const string goName = "GPGSManagerObject";
                     var          go     = GameObject.Find( goName );
-                    if( go == null )
+                    if( !go )
                     {
                         go = new GameObject { name = goName };
                         DontDestroyOnLoad( go );
