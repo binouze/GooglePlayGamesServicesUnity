@@ -170,8 +170,12 @@ public class GPGSHelper {
             });
         });
     }
-
-    public static void signInSilently(boolean force = false) {
+    
+    public static void signInSilently() {
+        signInSilently(false);
+    }
+    
+    public static void signInSilently(boolean force) {
         if( !_usingProvider && !_isInitialized ) {
             manualSilentSignIn();
             return;
