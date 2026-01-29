@@ -273,10 +273,12 @@ namespace com.binouze.gpgs.Android
 
         public void OnGPGSCloudSaveWriteResult( string data )
         {
-            Log( $"OnGPGSCloudSaveWriteResult Result: {data}" );
+            var parseSuccess = int.TryParse(data, out var statusCode);
+            var status       = parseSuccess && statusCode == 0;
+
+            Log($"OnGPGSCloudSaveWriteResult Result: {data} - Status: {statusCode} (Parsed: {parseSuccess})");
             
-            var status = OnDataSaved.GetInt(-10);
-            OnDataSaved?.Invoke( status == 0 );
+            OnDataSaved?.Invoke( status );
             OnDataSaved = null;
         }
         
