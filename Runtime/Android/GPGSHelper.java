@@ -176,7 +176,7 @@ public class GPGSHelper {
     }
     
     public static void signInSilently(boolean force) {
-        if( !_usingProvider && !_isInitialized ) {
+        if( !_usingProvider && !_isInitialized && !force ) {
             manualSilentSignIn();
             return;
         }
