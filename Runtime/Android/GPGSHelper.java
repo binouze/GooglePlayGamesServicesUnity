@@ -140,11 +140,11 @@ public class GPGSHelper {
             GoogleSignInOptions.Builder builder = 
                 new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_GAMES_SIGN_IN).requestScopes(new Scope(Scopes.GAMES_LITE));
     
-            if (_requestAuthCode && !_webClientId.isEmpty()) {
+            /*if (_requestAuthCode && !_webClientId.isEmpty()) {
                 builder.requestServerAuthCode(_webClientId);
             }
             if (_requestEmail) builder.requestEmail();
-            if (_requestProfile) builder.requestProfile();
+            if (_requestProfile) builder.requestProfile();*/
     
             GoogleSignInOptions options = builder.build();
             GoogleSignInClient signInClient = GoogleSignIn.getClient(activity, options);
