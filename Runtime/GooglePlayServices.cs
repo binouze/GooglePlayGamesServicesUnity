@@ -65,6 +65,7 @@ namespace com.binouze.gpgs
         [UsedImplicitly]
         public static void SetLoggingEnabled( bool enabled )
         {
+            GPGSLogger.SetEnabled( enabled );
             GPGSManager.SetLoggingEnabled( enabled );
         }
         
@@ -86,7 +87,7 @@ namespace com.binouze.gpgs
         }
         private static void Log( string str )
         {
-            GPGSLogger.Log( $"[Google] {str}" );
+            GPGSLogger.Log( $"[GPGS] {str}" );
         }
 
         private static bool IsSilentSignIn;
@@ -179,9 +180,9 @@ namespace com.binouze.gpgs
             if( !IsConnected )
                 User = null;
 
-            if( User == null )
+            if( IsConnected && User == null )
             {
-                Log( "[ConnectWithGoogle] RESULT WITHOUT USER:: NOT CONNECTED" );
+                Log( "RESULT WITHOUT USER:: NOT CONNECTED" );
                 IsConnected = false;
             }
 
