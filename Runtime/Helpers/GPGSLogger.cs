@@ -20,19 +20,18 @@ namespace com.binouze.gpgs.Helpers
         internal static void Log( string value )
         {
             if( Enabled )
-                Debug.Log( $"[SignInWithAppleOrGoogle] {value}" );
+                Debug.Log( $"[GooglePlayServices] {value}" );
         }
 
         internal static void LogWarning( string value )
         {
             if( Enabled )
-                Debug.LogWarning( $"[SignInWithAppleOrGoogle] {value}" );
+                Debug.LogWarning( $"[GooglePlayServices] {value}" );
         }
         
         internal static void LogError( string value )
         {
-            if( Enabled )
-                Debug.LogError( $"[SignInWithAppleOrGoogle] {value}" );
+            Debug.LogError( $"[GooglePlayServices] {value}" );
         }
     }
 }

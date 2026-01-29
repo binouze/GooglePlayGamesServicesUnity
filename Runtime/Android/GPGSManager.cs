@@ -27,6 +27,10 @@ namespace com.binouze.gpgs.Android
         {
             GPGSLogger.Log( $"[GPGSManager] {val}" );
         }
+        private static void LogError( string val )
+        {
+            GPGSLogger.Log( $"[GPGSManager] {val}" );
+        }
         
         public static void SetLoggingEnabled( bool enabled )
         {
@@ -39,7 +43,7 @@ namespace com.binouze.gpgs.Android
             }
             catch( Exception e )
             {
-                
+                LogError( $"SetLoggingEnabled {e}" );
             }
             #endif
         }
@@ -49,8 +53,15 @@ namespace com.binouze.gpgs.Android
             Log( "Calling SetConfiguration" );
             
             #if !UNITY_EDITOR
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("configure", configuration.WebClientId, configuration.RequestAuthCode, configuration.RequestEmail, configuration.RequestProfile, configuration.AutoSignIn );
+            try
+            {
+                using var cls = new AndroidJavaClass(JavaClassName);
+                cls.CallStatic("configure", configuration.WebClientId, configuration.RequestAuthCode, configuration.RequestEmail, configuration.RequestProfile, configuration.AutoSignIn );
+            }
+            catch( Exception e )
+            {
+                LogError( $"SetConfiguration {e}" );
+            }
             #endif
         }
         
@@ -63,8 +74,15 @@ namespace com.binouze.gpgs.Android
             OnDataSaved = null;
 
             #if !UNITY_EDITOR
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("closeDialog");
+            try
+            {
+                using var cls = new AndroidJavaClass(JavaClassName);
+                cls.CallStatic("closeDialog");
+            }
+            catch( Exception e )
+            {
+                LogError( $"ResetStatics {e}" );
+            }
             #endif
         }
         
@@ -76,8 +94,15 @@ namespace com.binouze.gpgs.Android
         {
             Log( "Calling SignIn" );
             #if !UNITY_EDITOR
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("signIn");
+            try
+            {
+                using var cls = new AndroidJavaClass(JavaClassName);
+                cls.CallStatic("signIn");
+            }
+            catch( Exception e )
+            {
+                LogError( $"SignIn {e}" );
+            }
             #else
             OnGPGSSignInResult( SUCCESS_RESPONSE );
             #endif
@@ -87,8 +112,15 @@ namespace com.binouze.gpgs.Android
         {
             Log( "Calling SignInSilently" );
             #if !UNITY_EDITOR
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("signInSilently");
+            try
+            {
+                using var cls = new AndroidJavaClass(JavaClassName);
+                cls.CallStatic("signInSilently");
+            }
+            catch( Exception e )
+            {
+                LogError( $"SignInSilently {e}" );
+            }
             #else
             OnGPGSSignInResult( SUCCESS_RESPONSE );
             #endif
@@ -99,8 +131,15 @@ namespace com.binouze.gpgs.Android
             Log( "Calling SignOut" );
             
             #if !UNITY_EDITOR
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("signOut");
+            try
+            {
+                using var cls = new AndroidJavaClass(JavaClassName);
+                cls.CallStatic("signOut");
+            }
+            catch( Exception e )
+            {
+                LogError( $"SignOut {e}" );
+            }
             #else
             OnGPGSSignInResult( "{\"deco\":\"ok\"}" );
             #endif
@@ -134,32 +173,60 @@ namespace com.binouze.gpgs.Android
         public void UnlockAchievement( string achievementId )
         {
             #if !UNITY_EDITOR
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("unlockAchievement", achievementId);
+            try
+            {
+                using var cls = new AndroidJavaClass(JavaClassName);
+                cls.CallStatic("unlockAchievement", achievementId);
+            }
+            catch( Exception e )
+            {
+                LogError( $"UnlockAchievement {e}" );
+            }
             #endif
         }
         
         public void IncrementAchievement( string achievementId, int increment )
         {
             #if !UNITY_EDITOR
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("incrementAchievement", achievementId, increment);
+            try
+            {
+                using var cls = new AndroidJavaClass(JavaClassName);
+                cls.CallStatic("incrementAchievement", achievementId, increment);
+            }
+            catch( Exception e )
+            {
+                LogError( $"IncrementAchievement {e}" );
+            }
             #endif
         }
         
         public void SetStepsAchievement( string achievementId, int steps )
         {
             #if !UNITY_EDITOR
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("setStepAchievement", achievementId, steps);
+            try
+            {
+                using var cls = new AndroidJavaClass(JavaClassName);
+                cls.CallStatic("setStepAchievement", achievementId, steps);
+            }
+            catch( Exception e )
+            {
+                LogError( $"SetStepsAchievement {e}" );
+            }
             #endif
         }
         
         public void ShowAchievementsUI()
         {
             #if !UNITY_EDITOR
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("showAchievements");
+            try
+            {
+                using var cls = new AndroidJavaClass(JavaClassName);
+                cls.CallStatic("showAchievements");
+            }
+            catch( Exception e )
+            {
+                LogError( $"ShowAchievementsUI {e}" );
+            }
             #endif
         }
         
@@ -173,9 +240,18 @@ namespace com.binouze.gpgs.Android
         internal void SaveToCloud( string saveName, string strData, Action<bool> callback )
         {
             #if !UNITY_EDITOR
-            OnDataSaved   = callback;
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("setCloudSaveDatas",saveName,strData);
+            try
+            {
+                OnDataSaved   = callback;
+                using var cls = new AndroidJavaClass(JavaClassName);
+                cls.CallStatic("setCloudSaveDatas",saveName,strData);
+            }
+            catch( Exception e )
+            {
+                LogError( $"SaveToCloud {e}" );
+                OnDataSaved = null;
+                callback?.Invoke( false );
+            }
             #else
             EditorPrefs.SetString( $"GPGS_DATA_{saveName}", strData );
             callback?.Invoke( true );
@@ -187,6 +263,7 @@ namespace com.binouze.gpgs.Android
             Log( $"OnGPGSCloudSaveWriteResult Result: {data}" );
             var status = OnDataSaved.GetInt(-10);
             OnDataSaved?.Invoke( status == 0 );
+            OnDataSaved = null;
         }
         
         
@@ -195,9 +272,18 @@ namespace com.binouze.gpgs.Android
         internal void LoadFromCloud( string saveName, Action<bool,string> callback )
         {
             #if !UNITY_EDITOR
-            OnDataRead = callback;
-            using var cls = new AndroidJavaClass(JavaClassName);
-            cls.CallStatic("getCloudSaveDatas");
+            try
+            {
+                OnDataRead = callback;
+                using var cls = new AndroidJavaClass(JavaClassName);
+                cls.CallStatic("getCloudSaveDatas");
+            }
+            catch( Exception e )
+            {
+                LogError( $"LoadFromCloud {e}" );
+                OnDataRead = null;
+                callback?.Invoke( false, "" );
+            }
             #else
             var data = EditorPrefs.GetString( $"GPGS_DATA_{saveName}" );
             callback?.Invoke( true, data );
@@ -212,10 +298,13 @@ namespace com.binouze.gpgs.Android
             if( int.TryParse(data, out var errorCode) && errorCode < 0 )
             {
                 OnDataRead?.Invoke( false, data );
-                return; 
+            }
+            else
+            {
+                OnDataRead?.Invoke( true, data );
             }
             
-            OnDataRead?.Invoke( true, data );
+            OnDataRead = null;
         }
         
         // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
