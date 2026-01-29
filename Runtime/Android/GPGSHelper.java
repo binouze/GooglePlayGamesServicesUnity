@@ -579,7 +579,7 @@ public class GPGSHelper {
                         }
                     } catch (IOException e) {
                         logError("Cloud Load: IO Exception. " + e.getMessage());
-                        sendCloudDataToUnity(-2);
+                        sendCloudDataToUnity("-2");
                     }
                 });
         });

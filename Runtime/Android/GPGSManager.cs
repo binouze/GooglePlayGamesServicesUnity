@@ -169,7 +169,7 @@ namespace com.binouze.gpgs.Android
         
         // -- WRITE --
         
-        public void SaveToCloud( string saveName, string strData, Action<bool> callback )
+        internal void SaveToCloud( string saveName, string strData, Action<bool> callback )
         {
             #if !UNITY_EDITOR
             OnDataSaved   = callback;
@@ -191,7 +191,7 @@ namespace com.binouze.gpgs.Android
         
         // -- READ --
 
-        public void LoadFromCloud( string saveName, Action<bool,string> callback )
+        internal void LoadFromCloud( string saveName, Action<bool,string> callback )
         {
             #if !UNITY_EDITOR
             OnDataRead = callback;

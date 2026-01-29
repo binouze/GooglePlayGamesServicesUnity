@@ -195,29 +195,111 @@ namespace com.binouze.gpgs
             OnSignInResponse?.Invoke();
         }
         
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+        // ---                                                             A C H I E V E M E N T S                                                                     ---
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
         
         /// <summary>
-        /// Débloque un succès.
+        /// Unlock success.
         /// </summary>
         [UsedImplicitly]
         public static void UnlockAchievement(string achievementId)
         {
             if( !IsConnected )
+            {
+                Log( "User is not connected" );
                 return;
+            }
             
             GPGSManager.GetInstance().UnlockAchievement(achievementId);
         }
+        
+        /// <summary>
+        /// Increment success progress.
+        /// </summary>
+        [UsedImplicitly]
+        public static void IncrementAchievement( string achievementId, int increment )
+        {
+            if( !IsConnected )
+            {
+                Log( "User is not connected" );
+                return;
+            }
+            
+            GPGSManager.GetInstance().IncrementAchievement(achievementId, increment);
+        }
+        
+        /// <summary>
+        /// set success progress.
+        /// </summary>
+        [UsedImplicitly]
+        public static void SetStepsAchievement( string achievementId, int steps )
+        {
+            if( !IsConnected )
+            {
+                Log( "User is not connected" );
+                return;
+            }
+            
+            GPGSManager.GetInstance().SetStepsAchievement(achievementId, steps);
+        }
 
         /// <summary>
-        /// Affiche l'interface native des succès.
+        /// Show GPGS Achievement UI
         /// </summary>
         [UsedImplicitly]
         public static void ShowAchievementsUI()
         {
             if( !IsConnected )
+            {
+                Log( "User is not connected" );
                 return;
+            }
             
             GPGSManager.GetInstance().ShowAchievementsUI();
+        }
+
+
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+        // ---                                                               C L O U D   S A V E                                                                       ---
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+        /// <summary>
+        /// Save a game state to the cloud
+        /// </summary>
+        /// <param name="saveName">the save name to save</param>
+        /// <param name="strData">the data to send to the cloud</param>
+        /// <param name="callback">the callback to know when operation complete with the success info</param>
+        [UsedImplicitly]
+        public static void SaveToCloud( string saveName, string strData, Action<bool> callback )
+        {
+            if( !IsConnected )
+            {
+                Log( "User is not connected" );
+                callback?.Invoke( false );
+                return;
+            }
+            
+            GPGSManager.GetInstance().SaveToCloud(saveName, strData, callback);
+        }
+
+        /// <summary>
+        /// Load a game state from the cloud
+        /// </summary>
+        /// <param name="saveName">the save name to retrieve</param>
+        /// <param name="callback">an action to get the result (bool succes, string strDatas)</param>
+        [UsedImplicitly]
+        public static  void LoadFromCloud( string saveName, Action<bool, string> callback )
+        {
+            if( !IsConnected )
+            {
+                Log( "User is not connected" );
+                callback?.Invoke( false, "not connected" );
+                return;
+            }
+            
+            GPGSManager.GetInstance().LoadFromCloud(saveName, callback);
         }
     }
 }
