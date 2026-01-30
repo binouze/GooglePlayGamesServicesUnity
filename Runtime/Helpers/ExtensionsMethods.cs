@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Runtime.CompilerServices;
+using UnityEngine;
 
 namespace com.binouze.gpgs.Helpers
 {
@@ -490,6 +492,43 @@ namespace com.binouze.gpgs.Helpers
             {
                 action( i );
             }
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void Run(this Awaitable self)
+        {
+            var awaiter = self.GetAwaiter();
+            awaiter.OnCompleted(() =>
+            {
+                try
+                {
+                    awaiter.GetResult();
+                }
+                catch( OperationCanceledException ) { /* Ignoré */ }
+                catch( Exception e )
+                {
+                    Debug.LogError($"[GPGS] Exception dans Run: {e}");
+                }
+            });
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void Run( this Awaitable self, Action OnComplete )
+        {
+            var awaiter = self.GetAwaiter();
+            awaiter.OnCompleted( () =>
+            {
+                try
+                {
+                    awaiter.GetResult();
+                    OnComplete?.Invoke();
+                }
+                catch( OperationCanceledException ) { /* Ignoré */ }
+                catch( Exception e )
+                {
+                    Debug.LogError($"[GPGS] Exception dans Run: {e}");
+                }
+            } );
         }
     }
 }

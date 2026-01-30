@@ -1,5 +1,6 @@
 #if UNITY_ANDROID
 using System;
+using System.Threading;
 using com.binouze.gpgs.Android;
 using com.binouze.gpgs.Helpers;
 using JetBrains.Annotations;
@@ -15,6 +16,8 @@ namespace com.binouze.gpgs
     {
         private static Action OnSignInResponse;
 
+        private static readonly SemaphoreSlim _semaphoreSignIn = new SemaphoreSlim(1, 1);
+        
         /// <summary>
         /// Gets a value indicating whether a user is currently authenticated with Google Play Games.
         /// </summary>
@@ -117,7 +120,7 @@ namespace com.binouze.gpgs
         private static bool IsSilentSignIn;
         private static bool IsSilentSignInOnly;
         private static bool UpgradeSilentSignInIfDeveloperError;
-        
+
         /// <summary>
         /// Initiates the Google Play Games authentication flow.
         /// </summary>
@@ -128,44 +131,71 @@ namespace com.binouze.gpgs
         [UsedImplicitly]
         public static void SignIn( Action OnComplete, bool silent = false, bool silentOnly = false, bool upgradeSilentSignInIfDeveloperError = false )
         {
-            if( IsConnected && User != null )
+            SignInAsync(silent, silentOnly, upgradeSilentSignInIfDeveloperError).Run(OnComplete);
+        }
+        
+        /// <summary>
+        /// Initiates the Google Play Games authentication flow.
+        /// </summary>
+        /// <param name="OnComplete">Callback executed when the authentication process finishes (success or failure).</param>
+        /// <param name="silent">If true, attempts to sign in without showing any UI to the user.</param>
+        /// <param name="silentOnly">If true, the process stops if silent sign-in fails, without prompting for interactive sign-in.</param>
+        /// <param name="upgradeSilentSignInIfDeveloperError">If true and a Developer Error occurs during silent sign-in, it will retry with the interactive UI.</param>
+        [UsedImplicitly]
+        public static async Awaitable SignInAsync( bool silent = false, bool silentOnly = false, bool upgradeSilentSignInIfDeveloperError = false )
+        {
+            if( _semaphoreSignIn.CurrentCount > 0 )
+                Log( "Waiting for previous SignIn operation to complete ..." );
+            
+            await _semaphoreSignIn.WaitAsync();
+            
+            var completionSource = new AwaitableCompletionSource();
+            try
             {
-                OnComplete?.Invoke();
-            }
-            else
-            {
-                Log( "Calling SignIn" );
-
-                #if UNITY_EDITOR
-                EditorHelper.ShowInputDialog( "connect gpgs ?<br>enter a fake Google userID and GPGS userID", "yes", "no",
-                    ( uid, gpgsId ) =>
-                    {
-                        OnSignInResponse         = OnComplete;
-                        IsSilentSignIn           = false;
-                        GPGSManager.FAKE_UID     = uid;
-                        GPGSManager.FAKE_GPGS_ID = gpgsId;
-                        GPGSManager.GetInstance().SignIn();
-                    },
-                    () =>
-                    {
-                        OnComplete?.Invoke();
-                    } );
-                #else
-                OnSignInResponse = OnComplete;
-                
-                if( silent )
+                if( IsConnected && User != null )
                 {
-                    IsSilentSignIn                      = true;
-                    IsSilentSignInOnly                  = silentOnly;
-                    UpgradeSilentSignInIfDeveloperError = upgradeSilentSignInIfDeveloperError;
-                    GPGSManager.GetInstance().SignInSilently();
+                    return;
                 }
                 else
                 {
-                    IsSilentSignIn = false;
-                    GPGSManager.GetInstance().SignIn();
+                    Log( "Calling SignIn" );
+
+                    // set the completion task
+                    OnSignInResponse = completionSource.SetResult;
+                    
+                    #if UNITY_EDITOR
+                    // show the editor UI
+                    EditorHelper.ShowInputDialog( "connect gpgs ?<br>enter a fake Google userID and GPGS userID", "yes", "no",
+                        ( uid, gpgsId ) =>
+                        {
+                            IsSilentSignIn           = false;
+                            GPGSManager.FAKE_UID     = uid;
+                            GPGSManager.FAKE_GPGS_ID = gpgsId;
+                            GPGSManager.GetInstance().SignIn();
+                        },
+                        completionSource.SetResult );
+                    #else
+                    if( silent )
+                    {
+                        IsSilentSignIn                      = true;
+                        IsSilentSignInOnly                  = silentOnly;
+                        UpgradeSilentSignInIfDeveloperError = upgradeSilentSignInIfDeveloperError;
+                        GPGSManager.GetInstance().SignInSilently();
+                    }
+                    else
+                    {
+                        IsSilentSignIn = false;
+                        GPGSManager.GetInstance().SignIn();
+                    }
+                    #endif
                 }
-                #endif
+                
+                // wait for the completion
+                await completionSource.Awaitable;
+            }
+            finally
+            {
+                _semaphoreSignIn.Release();
             }
         }
 
@@ -177,12 +207,41 @@ namespace com.binouze.gpgs
         [UsedImplicitly]
         public static void SignOut( Action OnComplete )
         {
-            Log( "SignOut" );
+            SignOutAsync().Run(OnComplete);
+        }
+        
+        /// <summary>
+        /// Signs the user out of the local session. 
+        /// Note: This disconnects the app state but does not globally sign the user out of Google Play Services as it's not possible with GPGS v2.
+        /// </summary>
+        [UsedImplicitly]
+        public static async Awaitable SignOutAsync()
+        {
+            if( _semaphoreSignIn.CurrentCount > 0 )
+                Log( "Waiting for previous SignIn operation to complete ..." );
             
-            IsConnected      = false;
-            User             = null;
-            OnSignInResponse = OnComplete;
-            GPGSManager.GetInstance().SignOut();
+            await _semaphoreSignIn.WaitAsync();
+            
+            Log( "SignOut" );
+
+            try
+            {
+                // create the completion source
+                var completionSource = new AwaitableCompletionSource();
+                // set the completion task
+                OnSignInResponse = completionSource.SetResult;
+                
+                IsConnected = false;
+                User        = null;
+                GPGSManager.GetInstance().SignOut();
+            
+                // wait for the completion
+                await completionSource.Awaitable;
+            }
+            finally
+            {
+                _semaphoreSignIn.Release();
+            }
         }
         
         private static void OnAuthenticationFinished( GPGSUser user )
