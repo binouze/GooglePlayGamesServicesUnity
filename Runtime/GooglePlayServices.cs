@@ -14,10 +14,10 @@ namespace com.binouze.gpgs
     /// </summary>
     public static class GooglePlayServices
     {
-        private static Action OnSignInResponse;
+        private static Action<GPGSUser> OnSignInResponse;
 
-        private static          CancellationTokenSource _globalCts = new ();
-        public static           CancellationToken       GlobalToken => _globalCts.Token;
+        private static CancellationTokenSource _globalCts = new ();
+        private static CancellationToken       GlobalToken => _globalCts.Token;
         
         private static readonly SemaphoreSlim _semaphoreSignIn = new ( 1, 1 );
         
@@ -106,12 +106,10 @@ namespace com.binouze.gpgs
             _globalCts.Dispose();
             _globalCts = new CancellationTokenSource();
             
-            User               = null;
-            IsConnected        = false;
-            IsSilentSignIn     = false;
-            IsSilentSignInOnly = true;
-            OnSignInResponse   = null;
-            LastSignInStatus   = GPGSSignInStatusCode.SignoutSuccess;
+            User             = null;
+            IsConnected      = false;
+            OnSignInResponse = null;
+            LastSignInStatus = GPGSSignInStatusCode.SignoutSuccess;
             
             GPGSManager.GetInstance().ResetStatics();
         }
@@ -124,9 +122,6 @@ namespace com.binouze.gpgs
             GPGSLogger.LogError( $"[GPGS] ERROR: {str}" );
         }
 
-        private static bool IsSilentSignIn;
-        private static bool IsSilentSignInOnly;
-        private static bool UpgradeSilentSignInIfDeveloperError;
 
         /// <summary>
         /// Initiates the Google Play Games authentication flow.
@@ -165,51 +160,66 @@ namespace com.binouze.gpgs
             try
             {
                 if( IsConnected && User != null )
-                {
                     return;
-                }
-                else
-                {
-                    Log( "Calling SignIn" );
+                
+                Log( "Calling SignIn" );
 
-                    // set the completion task
-                    OnSignInResponse = completionSource.SetResult;
-                    
-                    #if UNITY_EDITOR
-                    // show the editor UI
-                    EditorHelper.ShowInputDialog( "connect gpgs ?<br>enter a fake Google userID and GPGS userID", "yes", "no",
-                        ( uid, gpgsId ) =>
-                        {
-                            IsSilentSignIn           = false;
-                            GPGSManager.FAKE_UID     = uid;
-                            GPGSManager.FAKE_GPGS_ID = gpgsId;
-                            GPGSManager.GetInstance().SignIn();
-                        },
-                        completionSource.SetResult );
-                    #else
-                    if( silent )
-                    {
-                        IsSilentSignIn                      = true;
-                        IsSilentSignInOnly                  = silentOnly;
-                        UpgradeSilentSignInIfDeveloperError = upgradeSilentSignInIfDeveloperError;
-                        GPGSManager.GetInstance().SignInSilently();
-                    }
-                    else
-                    {
-                        IsSilentSignIn = false;
-                        GPGSManager.GetInstance().SignIn();
-                    }
-                    #endif
+                
+                // sign in
+                var result = await ExecuteSignInFlow(silent,combinedToken);
+
+                // check if we should upgrade the silent signIn to a manual one
+                var isSuccess     = result is { Status: GPGSSignInStatusCode.Success or GPGSSignInStatusCode.SuccessCached };
+                var shouldUpgrade = !isSuccess && silent && (!silentOnly || (upgradeSilentSignInIfDeveloperError && result?.Status == GPGSSignInStatusCode.DeveloperError));
+
+                if( shouldUpgrade )
+                {
+                    Log("Silent login failed, upgrading to interactive sign-in...");
+                    result = await ExecuteSignInFlow(false,combinedToken);
                 }
                 
-                // wait for the completion
-                await completionSource.Awaitable;
+                // update sign in status
+                UpdateSignInState( result );
             }
             finally
             {
                 OnSignInResponse = null; // cleaning callback
                 _semaphoreSignIn.Release();
             }
+        }
+        
+        // Méthode helper interne pour éviter la répétition du code de CompletionSource
+        private static async Awaitable<GPGSUser> ExecuteSignInFlow(bool silent, CancellationToken token)
+        {
+            Log( $"ExecuteSignInFlow {silent}" );
+            
+            var       completionSource = new AwaitableCompletionSource<GPGSUser>();
+            using var _                = completionSource.LinkToken(token);
+    
+            OnSignInResponse = user => completionSource.SetResult(user);
+
+            #if UNITY_EDITOR
+            // show the editor UI
+            EditorHelper.ShowInputDialog( "connect gpgs ?<br>enter a fake Google userID and GPGS userID", "yes", "no",
+                ( uid, gpgsId ) =>
+                {
+                    GPGSManager.FAKE_UID     = uid;
+                    GPGSManager.FAKE_GPGS_ID = gpgsId;
+                    GPGSManager.GetInstance().SignIn();
+                },
+                () => completionSource.SetResult(null) );
+            #else
+            if( silent )
+            {
+                GPGSManager.GetInstance().SignInSilently();
+            }
+            else
+            {
+                GPGSManager.GetInstance().SignIn();
+            }
+            #endif
+
+            return await completionSource.Awaitable;
         }
 
         /// <summary>
@@ -247,18 +257,18 @@ namespace com.binouze.gpgs
                     return;
                 
                 // create the completion source
-                var       completionSource = new AwaitableCompletionSource();
+                var       completionSource = new AwaitableCompletionSource<GPGSUser>();
                 using var _                = completionSource.LinkToken( combinedToken );
                 
                 // set the completion task
-                OnSignInResponse = completionSource.SetResult;
+                OnSignInResponse = user => completionSource.SetResult(user);
                 
-                IsConnected = false;
-                User        = null;
+                // call native signOut function
                 GPGSManager.GetInstance().SignOut();
             
                 // wait for the completion
-                await completionSource.Awaitable;
+                var result = await completionSource.Awaitable;
+                UpdateSignInState( result );
             }
             finally
             {
@@ -272,7 +282,7 @@ namespace com.binouze.gpgs
             Log( $"OnAuthenticationFinished Status: {user?.Status}" );
 
             // keep the last sign in status code
-            LastSignInStatus = user?.Status ?? GPGSSignInStatusCode.Error;
+            /*LastSignInStatus = user?.Status ?? GPGSSignInStatusCode.Error;
             
             if( user is { Status: GPGSSignInStatusCode.Success or GPGSSignInStatusCode.SuccessCached } )
             {
@@ -295,17 +305,28 @@ namespace com.binouze.gpgs
             {
                 IsConnected = false;
                 User        = null;
-            }
-
-            // if this is a silent login, and we can upgrade it to a real login, we start a manual sign in
-            if( !IsConnected && IsSilentSignIn && (!IsSilentSignInOnly || (UpgradeSilentSignInIfDeveloperError && LastSignInStatus == GPGSSignInStatusCode.DeveloperError)) )
-            {
-                SignIn( OnSignInResponse );
-                return;
-            }
+            }*/
             
             // invoke the callback
-            OnSignInResponse?.Invoke();
+            OnSignInResponse?.Invoke( user );
+        }
+        
+        private static void UpdateSignInState( GPGSUser user )
+        {
+            LastSignInStatus = user?.Status ?? GPGSSignInStatusCode.Error;
+            
+            if( user is { Status: GPGSSignInStatusCode.Success or GPGSSignInStatusCode.SuccessCached } )
+            {
+                User        = user;
+                IsConnected = true;
+                Log($"UpdateSignInState - Connected as: {User.DisplayName}");
+            }
+            else
+            {
+                User        = null;
+                IsConnected = false;
+                Log($"UpdateSignInState - Not connected. Status: {LastSignInStatus}");
+            }
         }
         
         // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
