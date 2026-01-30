@@ -23,9 +23,9 @@ namespace com.binouze.gpgs.Android
         public static string FAKE_UID;
         public static string FAKE_GPGS_ID;
         
-        internal static Action<GPGSUser> OnAuthenticationFinished;
-        private Action<bool>             OnDataSaved;
-        private Action<bool,string>      OnDataRead;
+        private Action<bool>        OnDataSaved;
+        private Action<bool,string> OnDataRead;
+        private Action<GPGSUser>    OnAuthCallback;
 
         
         private static void Log( string val )
@@ -71,8 +71,9 @@ namespace com.binouze.gpgs.Android
         {
             Log( "Calling ResetStatics" );
 
-            OnDataRead  = null;
-            OnDataSaved = null;
+            OnDataRead     = null;
+            OnDataSaved    = null;
+            OnAuthCallback = null;
 
             #if !UNITY_EDITOR
             try
@@ -91,9 +92,11 @@ namespace com.binouze.gpgs.Android
         // ---                                                         S I G N   I N   /   S I G N   O U T                                                             ---
         // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
         
-        public void SignIn()
+        public void SignIn(Action<GPGSUser> callback)
         {
             Log( "Calling SignIn" );
+            
+            OnAuthCallback = callback;
             
             #if !UNITY_EDITOR
             try
@@ -104,15 +107,19 @@ namespace com.binouze.gpgs.Android
             catch( Exception e )
             {
                 LogError( $"SignIn - {e}" );
+                OnAuthCallback = null;
+                callback?.Invoke(null);
             }
             #else
             OnGPGSSignInResult( SUCCESS_RESPONSE );
             #endif
         }
 
-        public void SignInSilently()
+        public void SignInSilently(Action<GPGSUser> callback)
         {
             Log( "Calling SignInSilently" );
+            
+            OnAuthCallback = callback;
             
             #if !UNITY_EDITOR
             try
@@ -123,15 +130,19 @@ namespace com.binouze.gpgs.Android
             catch( Exception e )
             {
                 LogError( $"SignInSilently - {e}" );
+                OnAuthCallback = null;
+                callback?.Invoke(null);
             }
             #else
             OnGPGSSignInResult( SUCCESS_RESPONSE );
             #endif
         }
         
-        public void SignOut()
+        public void SignOut(Action<GPGSUser> callback)
         {
             Log( "Calling SignOut" );
+            
+            OnAuthCallback = callback;
             
             #if !UNITY_EDITOR
             try
@@ -142,6 +153,8 @@ namespace com.binouze.gpgs.Android
             catch( Exception e )
             {
                 LogError( $"SignOut - {e}" );
+                OnAuthCallback = null;
+                callback?.Invoke(null);
             }
             #else
             OnGPGSSignInResult( SUCCESS_SIGN_OUT);
@@ -156,16 +169,14 @@ namespace com.binouze.gpgs.Android
         {
             Log( $"OnSignInResult Result: {result}" );
             
-            var datas = GPGSJson.Deserialize( result );
-            if( datas is Dictionary<string, object> dic )
-            {
-                var signedInUser = GPGSUser.FromObject( dic.GetDictionary( "result" ) );
-                OnAuthenticationFinished?.Invoke( signedInUser );
-            }
-            else
-            {
-                OnAuthenticationFinished?.Invoke( new GPGSUser{Status = GPGSSignInStatusCode.Error} );
-            }
+            var data = GPGSJson.Deserialize( result );
+            var signedInUser = (data is Dictionary<string, object> dic) 
+                ? GPGSUser.FromObject(dic.GetDictionary("result")) 
+                : new GPGSUser { Status = GPGSSignInStatusCode.Error };
+
+            var cb = OnAuthCallback;
+            OnAuthCallback = null;
+            cb?.Invoke(signedInUser);
         }
 
         // ---------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -277,9 +288,10 @@ namespace com.binouze.gpgs.Android
             var status       = parseSuccess && statusCode == 0;
 
             Log($"OnGPGSCloudSaveWriteResult Result: {data} - Status: {statusCode} (Parsed: {parseSuccess})");
-            
-            OnDataSaved?.Invoke( status );
+
+            var cb = OnDataSaved;
             OnDataSaved = null;
+            cb?.Invoke( status );
         }
         
         
@@ -312,17 +324,18 @@ namespace com.binouze.gpgs.Android
         {
             Log( $"OnGPGSCloudSaveReadResult Result: {data}" );
             
+            var cb = OnDataRead;
+            OnDataRead = null;
+            
             // si on a un entier negatif c'est que c'est une erreur
             if( int.TryParse(data, out var errorCode) && errorCode < 0 )
             {
-                OnDataRead?.Invoke( false, data );
+                cb?.Invoke( false, data );
             }
             else
             {
-                OnDataRead?.Invoke( true, data );
+                cb?.Invoke( true, data );
             }
-            
-            OnDataRead = null;
         }
         
         // ---------------------------------------------------------------------------------------------------------------------------------------------------------------

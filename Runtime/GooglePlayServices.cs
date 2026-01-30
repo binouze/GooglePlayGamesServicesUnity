@@ -14,8 +14,6 @@ namespace com.binouze.gpgs
     /// </summary>
     public static class GooglePlayServices
     {
-        private static Action<GPGSUser> OnSignInResponse;
-
         private static CancellationTokenSource _globalCts = new ();
         private static CancellationToken       GlobalToken => _globalCts.Token;
         
@@ -53,7 +51,6 @@ namespace com.binouze.gpgs
                 RequestAuthCode  = true
             };
             GPGSManager.GetInstance().SetConfiguration( configuration );
-            GPGSManager.OnAuthenticationFinished = OnAuthenticationFinished;
             ResetStatics();
         }
 
@@ -108,7 +105,6 @@ namespace com.binouze.gpgs
             
             User             = null;
             IsConnected      = false;
-            OnSignInResponse = null;
             LastSignInStatus = GPGSSignInStatusCode.SignoutSuccess;
             
             GPGSManager.GetInstance().ResetStatics();
@@ -183,7 +179,6 @@ namespace com.binouze.gpgs
             }
             finally
             {
-                OnSignInResponse = null; // cleaning callback
                 _semaphoreSignIn.Release();
             }
         }
@@ -195,9 +190,7 @@ namespace com.binouze.gpgs
             
             var       completionSource = new AwaitableCompletionSource<GPGSUser>();
             using var _                = completionSource.LinkToken(token);
-    
-            OnSignInResponse = user => completionSource.SetResult(user);
-
+            
             #if UNITY_EDITOR
             // show the editor UI
             EditorHelper.ShowInputDialog( "connect gpgs ?<br>enter a fake Google userID and GPGS userID", "yes", "no",
@@ -205,17 +198,17 @@ namespace com.binouze.gpgs
                 {
                     GPGSManager.FAKE_UID     = uid;
                     GPGSManager.FAKE_GPGS_ID = gpgsId;
-                    GPGSManager.GetInstance().SignIn();
+                    GPGSManager.GetInstance().SignIn(user => completionSource.SetResult(user));
                 },
                 () => completionSource.SetResult(null) );
             #else
             if( silent )
             {
-                GPGSManager.GetInstance().SignInSilently();
+                GPGSManager.GetInstance().SignInSilently(user => completionSource.SetResult(user));
             }
             else
             {
-                GPGSManager.GetInstance().SignIn();
+                GPGSManager.GetInstance().SignIn(user => completionSource.SetResult(user));
             }
             #endif
 
@@ -260,11 +253,8 @@ namespace com.binouze.gpgs
                 var       completionSource = new AwaitableCompletionSource<GPGSUser>();
                 using var _                = completionSource.LinkToken( combinedToken );
                 
-                // set the completion task
-                OnSignInResponse = user => completionSource.SetResult(user);
-                
                 // call native signOut function
-                GPGSManager.GetInstance().SignOut();
+                GPGSManager.GetInstance().SignOut(user => completionSource.SetResult(user));
             
                 // wait for the completion
                 var result = await completionSource.Awaitable;
@@ -272,43 +262,8 @@ namespace com.binouze.gpgs
             }
             finally
             {
-                OnSignInResponse = null; // cleaning callback
                 _semaphoreSignIn.Release();
             }
-        }
-        
-        private static void OnAuthenticationFinished( GPGSUser user )
-        {
-            Log( $"OnAuthenticationFinished Status: {user?.Status}" );
-
-            // keep the last sign in status code
-            /*LastSignInStatus = user?.Status ?? GPGSSignInStatusCode.Error;
-            
-            if( user is { Status: GPGSSignInStatusCode.Success or GPGSSignInStatusCode.SuccessCached } )
-            {
-                User = user;
-
-                Log( $"IDToken:     {User.IdToken}" );
-                Log( $"GPGSId:      {User.GPGSId}" );
-                Log( $"UserID:      {User.UserId}" );
-                Log( $"DisplayName: {User.DisplayName}" );
-                Log( $"GivenName:   {User.GivenName}" );
-                Log( $"FamilyName:  {User.FamilyName}" );
-                Log( $"PhotoUrl:    {User.PhotoUrl}" );
-                Log( $"Email:       {User.Email}" );
-                Log( $"AuthCode:    {User.AuthCode}" );
-                Log( $"STATUS:      {User.Status}" );
-
-                IsConnected = true;
-            }
-            else
-            {
-                IsConnected = false;
-                User        = null;
-            }*/
-            
-            // invoke the callback
-            OnSignInResponse?.Invoke( user );
         }
         
         private static void UpdateSignInState( GPGSUser user )
