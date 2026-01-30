@@ -409,8 +409,10 @@ public class GPGSHelper {
         Activity activity = UnityPlayer.currentActivity;
         activity.runOnUiThread(() -> {
             try {
-                PlayGames.getAchievementsClient(activity).unlock(achievementId);
-                logDebug("Unlock Achievement: " + achievementId);
+                PlayGames.getAchievementsClient(activity).unlock(achievementId)
+                         .addOnSuccessListener(unused -> logDebug("Unlock successful for: " + achievementId))
+                         .addOnFailureListener(e -> logError("Unlock failed for " + achievementId + " : " + e.getMessage()));
+                //logDebug("Unlock Achievement: " + achievementId);
             } catch (Exception e) {
                 logError("Unlock failed: " + e.getMessage());
             }
@@ -449,8 +451,10 @@ public class GPGSHelper {
         activity.runOnUiThread(() -> {
             try {
                 // .increment() ajoute 'steps' au total déjà stocké sur les serveurs Google
-                PlayGames.getAchievementsClient(activity).increment(achievementId, steps);
-                logDebug("Incremented Achievement: " + achievementId + " by " + steps + " steps.");
+                PlayGames.getAchievementsClient(activity).increment(achievementId, steps)
+                         .addOnSuccessListener(unused -> logDebug("Incremented successful for: " + achievementId + " by " + steps + " steps."))
+                         .addOnFailureListener(e -> logError("Incremented failed for " + achievementId + " : " + e.getMessage()));
+                //logDebug("Incremented Achievement: " + achievementId + " by " + steps + " steps.");
             } catch (Exception e) {
                 logError("Increment failed: " + e.getMessage());
             }
@@ -469,8 +473,10 @@ public class GPGSHelper {
         activity.runOnUiThread(() -> {
             try {
                 // .setStep() défnini 'steps' sur les serveurs Google pour cet achievement
-                PlayGames.getAchievementsClient(activity).setStepsImmediate(achievementId, steps);
-                logDebug("SetStep Achievement: " + achievementId + " set " + steps + " steps.");
+                PlayGames.getAchievementsClient(activity).setStepsImmediate(achievementId, steps)
+                         .addOnSuccessListener(unused -> logDebug("SetStep successful for: " + achievementId + " set " + steps + " steps."))
+                         .addOnFailureListener(e -> logError("SetStep failed for " + achievementId + " : " + e.getMessage()));
+                //logDebug("SetStep Achievement: " + achievementId + " set " + steps + " steps.");
             } catch (Exception e) {
                 logError("SetStep failed: " + e.getMessage());
             }
