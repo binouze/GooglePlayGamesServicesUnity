@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using UnityEngine;
 
 namespace com.binouze.gpgs.Helpers
@@ -529,6 +530,65 @@ namespace com.binouze.gpgs.Helpers
                     Debug.LogError($"[GPGS] Exception dans Run: {e}");
                 }
             } );
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void Run<T>( this Awaitable<T> self, Action<T> OnComplete )
+        {
+            var awaiter = self.GetAwaiter();
+            awaiter.OnCompleted( () =>
+            {
+                try
+                {
+                    var res = awaiter.GetResult();
+                    OnComplete?.Invoke(res);
+                }
+                catch( OperationCanceledException ) { /* Ignoré */ }
+                catch( Exception e )
+                {
+                    Debug.LogError($"[GPGS] Exception dans Run: {e}");
+                }
+            } );
+        }
+        
+        
+        
+        
+        /// <summary>
+        /// Lie un CancellationToken à un AwaitableCompletionSource.
+        /// Annule la source si le jeton est activé.
+        /// </summary>
+        public static IDisposable LinkToken(this AwaitableCompletionSource source, CancellationToken token)
+        {
+            if( !token.CanBeCanceled ) 
+                return null;
+
+            // Si déjà annulé, on arrête tout de suite
+            if( token.IsCancellationRequested )
+            {
+                source.TrySetCanceled();
+                return null;
+            }
+
+            // On enregistre l'action d'annulation
+            return token.Register(() => source.TrySetCanceled());
+        }
+
+        /// <summary>
+        /// Version générique pour AwaitableCompletionSource<T>
+        /// </summary>
+        public static IDisposable LinkToken<T>( this AwaitableCompletionSource<T> source, CancellationToken token )
+        {
+            if( !token.CanBeCanceled ) 
+                return null;
+            
+            if( token.IsCancellationRequested)
+            {
+                source.TrySetCanceled();
+                return null;
+            }
+
+            return token.Register(() => source.TrySetCanceled());
         }
     }
 }

@@ -16,7 +16,10 @@ namespace com.binouze.gpgs
     {
         private static Action OnSignInResponse;
 
-        private static readonly SemaphoreSlim _semaphoreSignIn = new SemaphoreSlim(1, 1);
+        private static          CancellationTokenSource _globalCts = new ();
+        public static           CancellationToken       GlobalToken => _globalCts.Token;
+        
+        private static readonly SemaphoreSlim _semaphoreSignIn = new ( 1, 1 );
         
         /// <summary>
         /// Gets a value indicating whether a user is currently authenticated with Google Play Games.
@@ -99,6 +102,10 @@ namespace com.binouze.gpgs
         {
             Log( "ResetStatics" );
             
+            _globalCts.Cancel();
+            _globalCts.Dispose();
+            _globalCts = new CancellationTokenSource();
+            
             User               = null;
             IsConnected        = false;
             IsSilentSignIn     = false;
@@ -133,23 +140,28 @@ namespace com.binouze.gpgs
         {
             SignInAsync(silent, silentOnly, upgradeSilentSignInIfDeveloperError).Run(OnComplete);
         }
-        
+
         /// <summary>
         /// Initiates the Google Play Games authentication flow.
         /// </summary>
-        /// <param name="OnComplete">Callback executed when the authentication process finishes (success or failure).</param>
         /// <param name="silent">If true, attempts to sign in without showing any UI to the user.</param>
         /// <param name="silentOnly">If true, the process stops if silent sign-in fails, without prompting for interactive sign-in.</param>
         /// <param name="upgradeSilentSignInIfDeveloperError">If true and a Developer Error occurs during silent sign-in, it will retry with the interactive UI.</param>
+        /// <param name="userToken"></param>
         [UsedImplicitly]
-        public static async Awaitable SignInAsync( bool silent = false, bool silentOnly = false, bool upgradeSilentSignInIfDeveloperError = false )
+        public static async Awaitable SignInAsync( bool silent = false, bool silentOnly = false, bool upgradeSilentSignInIfDeveloperError = false, CancellationToken userToken = default )
         {
-            if( _semaphoreSignIn.CurrentCount > 0 )
+            using var linkedCts     = CancellationTokenSource.CreateLinkedTokenSource(userToken, GlobalToken);
+            var       combinedToken = linkedCts.Token;
+            
+            if( _semaphoreSignIn.CurrentCount == 0 )
                 Log( "Waiting for previous SignIn operation to complete ..." );
             
-            await _semaphoreSignIn.WaitAsync();
+            await _semaphoreSignIn.WaitAsync(combinedToken);
             
-            var completionSource = new AwaitableCompletionSource();
+            var       completionSource = new AwaitableCompletionSource();
+            using var _                = completionSource.LinkToken(combinedToken);
+            
             try
             {
                 if( IsConnected && User != null )
@@ -195,6 +207,7 @@ namespace com.binouze.gpgs
             }
             finally
             {
+                OnSignInResponse = null; // cleaning callback
                 _semaphoreSignIn.Release();
             }
         }
@@ -215,19 +228,28 @@ namespace com.binouze.gpgs
         /// Note: This disconnects the app state but does not globally sign the user out of Google Play Services as it's not possible with GPGS v2.
         /// </summary>
         [UsedImplicitly]
-        public static async Awaitable SignOutAsync()
+        public static async Awaitable SignOutAsync(CancellationToken userToken = default)
         {
-            if( _semaphoreSignIn.CurrentCount > 0 )
-                Log( "Waiting for previous SignIn operation to complete ..." );
+            using var linkedCts     = CancellationTokenSource.CreateLinkedTokenSource(userToken, GlobalToken);
+            var       combinedToken = linkedCts.Token;
             
-            await _semaphoreSignIn.WaitAsync();
+            // waiting for any previous operation
+            if( _semaphoreSignIn.CurrentCount == 0 )
+                Log( "Waiting for previous SignIn operation to complete ..." );
+            await _semaphoreSignIn.WaitAsync(combinedToken);
             
             Log( "SignOut" );
 
             try
             {
+                // already disconnected
+                if( !IsConnected )
+                    return;
+                
                 // create the completion source
-                var completionSource = new AwaitableCompletionSource();
+                var       completionSource = new AwaitableCompletionSource();
+                using var _                = completionSource.LinkToken( combinedToken );
+                
                 // set the completion task
                 OnSignInResponse = completionSource.SetResult;
                 
@@ -240,6 +262,7 @@ namespace com.binouze.gpgs
             }
             finally
             {
+                OnSignInResponse = null; // cleaning callback
                 _semaphoreSignIn.Release();
             }
         }
@@ -369,14 +392,49 @@ namespace com.binouze.gpgs
         [UsedImplicitly]
         public static void SaveToCloud( string saveName, string strData, Action<bool> callback )
         {
-            if( !IsConnected )
-            {
-                LogError( "SaveToCloud - User is not connected" );
-                callback?.Invoke( false );
-                return;
-            }
+            SaveToCloudAsync( saveName, strData ).Run( callback );
+        }
+
+        /// <summary>
+        /// Saves a data string to the Google Play Cloud Save service (Snapshots).
+        /// </summary>
+        /// <param name="saveName">The filename of the snapshot.</param>
+        /// <param name="strData">The data string (usually JSON) to store.</param>
+        /// <param name="userToken"></param>
+        [UsedImplicitly]
+        public static async Awaitable<bool> SaveToCloudAsync(string saveName, string strData, CancellationToken userToken = default)
+        {
+            using var linkedCts     = CancellationTokenSource.CreateLinkedTokenSource(userToken, GlobalToken);
+            var       combinedToken = linkedCts.Token;
             
-            GPGSManager.GetInstance().SaveToCloud(saveName, strData, callback);
+            // wait for any previous action to complete
+            if( _semaphoreSignIn.CurrentCount == 0 )
+                Log($"Waiting for GPGS state to stabilize before saving {saveName}...");
+            await _semaphoreSignIn.WaitAsync(combinedToken);
+
+            try
+            {
+                // user not connected
+                if( !IsConnected )
+                {
+                    LogError("SaveToCloud - User is not connected");
+                    return false;
+                }
+
+                Log($"Calling SaveToCloud: {saveName}");
+                var       completionSource = new AwaitableCompletionSource<bool>();
+                using var _                = completionSource.LinkToken( combinedToken );
+
+                GPGSManager.GetInstance().SaveToCloud(saveName, strData, success => {
+                    completionSource.SetResult(success);
+                });
+
+                return await completionSource.Awaitable;
+            }
+            finally
+            {
+                _semaphoreSignIn.Release();
+            }
         }
 
         /// <summary>
@@ -387,14 +445,48 @@ namespace com.binouze.gpgs
         [UsedImplicitly]
         public static  void LoadFromCloud( string saveName, Action<bool, string> callback )
         {
-            if( !IsConnected )
-            {
-                LogError( "LoadFromCloud - User is not connected" );
-                callback?.Invoke( false, "not connected" );
-                return;
-            }
+            LoadFromCloudAsync(saveName).Run( res => callback?.Invoke( res.success, res.data ) );
+        }
+
+        /// <summary>
+        /// Retrieves a data string from the Google Play Cloud Save service (Snapshots).
+        /// </summary>
+        /// <param name="saveName">The filename of the snapshot to read.</param>
+        /// <param name="userToken"></param>
+        [UsedImplicitly]
+        public static async Awaitable<(bool success, string data)> LoadFromCloudAsync(string saveName, CancellationToken userToken = default)
+        {
+            using var linkedCts     = CancellationTokenSource.CreateLinkedTokenSource(userToken, GlobalToken);
+            var       combinedToken = linkedCts.Token;
             
-            GPGSManager.GetInstance().LoadFromCloud(saveName, callback);
+            // wait for any previous action to complete
+            if( _semaphoreSignIn.CurrentCount == 0 )
+                Log($"Waiting for GPGS state to stabilize before loading {saveName}...");
+            await _semaphoreSignIn.WaitAsync(combinedToken);
+
+            try
+            {
+                // user not connected
+                if( !IsConnected )
+                {
+                    LogError("LoadFromCloud - User is not connected");
+                    return (false, "not connected");
+                }
+
+                Log($"Calling LoadFromCloud: {saveName}");
+                var       completionSource = new AwaitableCompletionSource<(bool, string)>();
+                using var _                = completionSource.LinkToken( combinedToken );
+                
+                GPGSManager.GetInstance().LoadFromCloud(saveName, (success, data) => {
+                    completionSource.SetResult((success, data));
+                });
+
+                return await completionSource.Awaitable;
+            }
+            finally
+            {
+                _semaphoreSignIn.Release();
+            }
         }
     }
 }
