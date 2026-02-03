@@ -42,7 +42,7 @@ namespace com.binouze.gpgs
 		
             GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(s, s, s)); 
             
-            _windowRect = GUILayout.Window( 0, _windowRect, DoMyWindow, "TEST ADS" );
+            _windowRect = GUILayout.Window( 0, _windowRect, DoMyWindow, "Google Play Services" );
         }
 
         internal static void ShowDialog( string texte, string bouton1, Action action1, string bouton2 = null, Action action2 = null )
