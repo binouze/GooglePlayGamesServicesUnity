@@ -171,6 +171,7 @@ namespace com.binouze.gpgs
                 if( shouldUpgrade )
                 {
                     Log("Silent login failed, upgrading to interactive sign-in...");
+                    await Awaitable.NextFrameAsync( combinedToken );
                     result = await ExecuteSignInFlow(false,combinedToken);
                 }
                 
