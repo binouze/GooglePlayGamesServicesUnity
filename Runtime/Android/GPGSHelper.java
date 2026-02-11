@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class GPGSHelper {
 
@@ -76,8 +77,8 @@ public class GPGSHelper {
     public static void configure( String webClientId, boolean requestAuthCode, boolean requestEmail, boolean requestProfile, boolean autologinEnabled ) {
         _webClientId     = webClientId;
         _requestEmail    = requestEmail;
-        _requestAuthCode = requestAuthCode;
         _requestProfile  = requestProfile;
+        _requestAuthCode = requestAuthCode;
         
         // Si autologinEnabled, le SDK est déjà initialisé par le Provider au démarrage de l'app.
         _usingProvider = autologinEnabled;
@@ -204,57 +205,101 @@ public class GPGSHelper {
     }
 
     private static void processSignInSuccess() {
+        logDebug("_processSignInSuccess");
+        
         Activity activity = UnityPlayer.currentActivity;
 
         // si on ne demande pas d'AuthCode, on passe directement à la récupération du profil
-        if (!_requestAuthCode) {
+        if( !_requestAuthCode ) {
             logDebug("AuthCode not requested, fetching player info directly...");
             fetchPlayerInfo(""); // On passe un code vide
             return;
         }
 
         // sinon, on procède à la demande d'accès serveur
+        final List<AuthScope> requestedScopes = new ArrayList<>();
         Task<?> task; 
-        if( _requestEmail || _requestProfile ) {
-            logDebug("Requesting Server Side Access with custom scope...");
-            List<AuthScope> scopes = new ArrayList<>();
-            if( _requestEmail )
-                scopes.add(AuthScope.EMAIL);
-            if( _requestProfile )
-                scopes.add(AuthScope.PROFILE);
-            
-            task = PlayGames.getGamesSignInClient(activity)
-                .requestServerSideAccess(_webClientId, false, scopes);
-        } else {
-            logDebug("Requesting Server Side Access (No extra scopes)...");
-            task = PlayGames.getGamesSignInClient(activity)
-                .requestServerSideAccess(_webClientId, false);
+        
+        logDebug("Requesting Server Side Access...");
+        List<AuthScope> scopes = new ArrayList<>();
+        if( _requestEmail )
+        {
+            scopes.add(AuthScope.EMAIL);
+            requestedScopes.add(AuthScope.EMAIL);
         }
-
+        if( _requestProfile )
+        {
+            scopes.add(AuthScope.PROFILE);
+            requestedScopes.add(AuthScope.PROFILE);
+        }
+        
+        task = PlayGames.getGamesSignInClient(activity)
+            .requestServerSideAccess(_webClientId, false, scopes);
+        
         task.addOnCompleteListener(t -> {
             String authCode = "";
+            boolean allScopesGranted = false;
             
-            if (t.isSuccessful()) {
+            if( t.isSuccessful() ) {
                 Object result = t.getResult();
                 
-                // On gère les deux types de retours possibles
                 if (result instanceof AuthResponse) {
-                    authCode = ((AuthResponse) result).getAuthCode();
-                } else if (result instanceof String) {
-                    authCode = (String) result;
+                    AuthResponse response = (AuthResponse) result;
+                    allScopesGranted      = true;
+                    
+                    // --- VÉRIFICATION DES SCOPES ---
+                    if (!requestedScopes.isEmpty()) {
+                        List<AuthScope> grantedScopes = response.getGrantedScopes();
+                        for (AuthScope scope : requestedScopes) {
+                            if (!grantedScopes.contains(scope)) {
+                                allScopesGranted = false;
+                                logDebug("Missing scope: " + scope.toString());
+                            }
+                        }
+                    }
+                    
+                    authCode = response.getAuthCode();
+                    
+                    logDebug("Got AuthCode as AuthResponse");
+                }
+                else if( result instanceof String )
+                {
+                    allScopesGranted = requestedScopes.isEmpty();
+                    authCode         = (String)result;
+                }
+                
+                // missing scope, user canceled dialog
+                if( !allScopesGranted )
+                {
+                    authCode = "";
                 }
                 
                 logDebug("Got AuthCode: " + authCode);
-            } else {
+            } 
+            else 
+            {
                 logError("Failed to get AuthCode");
             }
 
             // récupérer les infos GooglePlayGames 
             fetchPlayerInfo(authCode);
+        })
+        .addOnFailureListener(e -> {
+            logError("OnFailure");
+            // C'est ici que l'annulation est parfois renvoyée selon la version du Play Services
+            if (e instanceof ApiException) {
+                int statusCode = ((ApiException) e).getStatusCode();
+                if (statusCode == CommonStatusCodes.CANCELED || statusCode == 12501) {
+                    logDebug("L'utilisateur a explicitement annulé.");
+                }
+            }
         });
     }
     
     private static void fetchPlayerInfo(String authCode) {
+    
+        logDebug("fetchPlayerInfo: " + authCode);
+    
         Activity activity = UnityPlayer.currentActivity;
         
         PlayGames.getPlayersClient(activity).getCurrentPlayer()
