@@ -303,7 +303,16 @@ public class GPGSHelper {
             } 
             else 
             {
-                logError("Failed to get AuthCode");
+                Exception e = t.getException();
+                String details = "Unknown error";
+                if (e instanceof ApiException) {
+                    ApiException apiException = (ApiException) e;
+                    // Récupère le code d'erreur (ex: 10 = DEVELOPER_ERROR, 8 = INTERNAL_ERROR)
+                    details = "Status Code: " + apiException.getStatusCode() + " - " + apiException.getMessage();
+                } else if (e != null) {
+                    details = e.getMessage();
+                }
+                logError("Failed to get AuthCode: " + details);
             }
 
             // récupérer les infos GooglePlayGames 
@@ -337,7 +346,15 @@ public class GPGSHelper {
                     gpgsId        = player.getPlayerId();
                     logDebug("Got Player Info. Name: " + displayName + ", ID: " + gpgsId);
                 } else {
-                    logError("Failed to get Player Object");
+                    Exception e = playerTask.getException();
+                    String details = "Unknown error";
+                    if (e instanceof ApiException) {
+                        ApiException apiException = (ApiException) e;
+                        details = "Status Code: " + apiException.getStatusCode();
+                    } else if (e != null) {
+                        details = e.getMessage();
+                    }
+                    logError("Failed to get Player Object: " + details);
                 }
                 
                 sendSignInResultToUnity(0, authCode, displayName, gpgsId);
