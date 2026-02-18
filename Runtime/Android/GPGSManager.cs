@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using com.binouze.gpgs.Helpers;
 using UnityEditor;
 using UnityEngine;
+using System.Text;
+using System.Security.Cryptography;
 
 namespace com.binouze.gpgs.Android
 {
@@ -14,10 +16,6 @@ namespace com.binouze.gpgs.Android
         private const  string SUCCESS_SIGN_OUT =  "{\"result\":{\"Status\":-2}}";
         #else
         public const string JavaClassName = "com.binouze.GPGSHelper";
-        private static void LogError( string val )
-        {
-            GPGSLogger.LogError( $"[GPGSManager] ERROR: {val}" );
-        }
         #endif
         
         public static string FAKE_UID;
@@ -32,15 +30,26 @@ namespace com.binouze.gpgs.Android
         {
             GPGSLogger.Log( $"[GPGSManager] {val}" );
         }
+        private static void LogError( string val )
+        {
+            GPGSLogger.LogError( $"[GPGSManager] ERROR: {val}" );
+        }
         
         public static void SetLoggingEnabled( bool enabled )
         {
             #if !UNITY_EDITOR
             try
             {
-                
                 using var cls = new AndroidJavaClass(JavaClassName);
                 cls.CallStatic("enableDebugLogging", enabled);
+
+                if( enabled )
+                {
+                    var sha256 = GetAndroidHash("SHA256");
+                    var sha1   = GetAndroidHash("SHA1");
+                    Log("Android SHA-256:" + sha256);
+                    Log("Android SHA-1:  " + sha1);
+                }
             }
             catch( Exception e )
             {
@@ -85,6 +94,30 @@ namespace com.binouze.gpgs.Android
             {
                 LogError( $"ResetStatics - {e}" );
             }
+            #endif
+        }
+        
+        
+        private bool? _isGpgsSupported = null;
+        public bool IsSupported()
+        {
+            #if UNITY_EDITOR
+            return true; 
+            #else
+            if( _isGpgsSupported.HasValue ) 
+                return _isGpgsSupported.Value;
+
+            try
+            {
+                using var cls    = new AndroidJavaClass(JavaClassName);
+                _isGpgsSupported = cls.CallStatic<bool>("isServicesAvailable");
+            }
+            catch( Exception e )
+            {
+                LogError($"IsSupported check failed: {e}");
+                _isGpgsSupported = false;
+            }
+            return _isGpgsSupported.Value;
             #endif
         }
         
@@ -362,6 +395,55 @@ namespace com.binouze.gpgs.Android
             }
 
             return _instance;
+        }
+        
+        // DEBUG
+        
+        public static string GetAndroidHash(string algorithm)
+        {
+            #if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                using( AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer") )
+                {
+                    using( AndroidJavaObject currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity") )
+                    {
+                        string packageName = currentActivity.Call<string>("getPackageName");
+                        AndroidJavaObject packageManager = currentActivity.Call<AndroidJavaObject>("getPackageManager");
+                        
+                        // 64 = GET_SIGNATURES
+                        AndroidJavaObject packageInfo  = packageManager.Call<AndroidJavaObject>("getPackageInfo", packageName, 64);
+                        AndroidJavaObject[] signatures = packageInfo.Get<AndroidJavaObject[]>("signatures");
+
+                        if (signatures != null && signatures.Length > 0)
+                        {
+                            byte[] certBytes = signatures[0].Call<byte[]>("toByteArray");
+                            byte[] hashBytes;
+
+                            if( algorithm == "SHA256" ) 
+                            {
+                                using var sha256 = SHA256.Create();
+                                hashBytes = sha256.ComputeHash(certBytes);
+                            } 
+                            else 
+                            {
+                                using var sha1 = SHA1.Create();
+                                hashBytes = sha1.ComputeHash(certBytes);
+                            }
+
+                            return BitConverter.ToString(hashBytes).Replace("-", ":");
+                        }
+                    }
+                }
+            }
+            catch( Exception e )
+            {
+                LogError("Erreur signature: " + e.Message);
+            }
+            #else
+            LogError("Le hash n'est récupérable que sur un vrai appareil Android.");
+            #endif
+            return "N/A";
         }
     }
 }

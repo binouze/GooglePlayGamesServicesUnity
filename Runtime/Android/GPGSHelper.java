@@ -13,8 +13,9 @@ import com.google.android.gms.games.AuthenticationResult;
 import com.google.android.gms.games.Player;
 import com.google.android.gms.games.PlayGames;
 import com.google.android.gms.games.PlayGamesSdk;
-import com.google.android.gms.games.gamessignin.AuthScope;
 import com.google.android.gms.games.gamessignin.AuthResponse;
+import com.google.android.gms.games.gamessignin.AuthScope;
+//import com.google.android.gms.games.AuthScope;
 
 // GMAS Snapshots
 import com.google.android.gms.games.SnapshotsClient;
@@ -25,6 +26,7 @@ import com.google.android.gms.games.snapshot.SnapshotMetadata;
 // GMS Auth & Common
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.common.api.CommonStatusCodes;
+import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.tasks.Task;
 
 // JSON
@@ -89,6 +91,24 @@ public class GPGSHelper {
         logDebug("Configured. WebClientId set. ProviderEnabled: " + _usingProvider);
     }
 
+    // --- AVAILABILITY CHECK ---
+    
+    public static boolean isServicesAvailable() 
+    {
+        Activity activity                     = UnityPlayer.currentActivity;
+        GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
+        int resultCode                        = apiAvailability.isGooglePlayServicesAvailable(activity);
+        
+        // ConnectionResult.SUCCESS is 0
+        if( resultCode == 0 ) 
+        {
+            logDebug("Google Play Services is available and valid.");
+            return true;
+        }
+        
+        logError("Google Play Services is unavailable. Code: " + resultCode);
+        return false;
+    }
 
     // -------------------------------------------------------------------------------------------------------------------------------------------------------------------
     // ---                                                         S I G N   I N   /   S I G N   O U T                                                                 ---
@@ -218,10 +238,15 @@ public class GPGSHelper {
 
         // sinon, on procède à la demande d'accès serveur
         final List<AuthScope> requestedScopes = new ArrayList<>();
+        List<AuthScope> scopes = new ArrayList<>();
         Task<?> task; 
         
         logDebug("Requesting Server Side Access...");
-        List<AuthScope> scopes = new ArrayList<>();
+        
+        // add open_id scope to be able to retrive the google_id from the authCode
+        scopes.add(AuthScope.OPEN_ID);
+        requestedScopes.add(AuthScope.OPEN_ID);
+        
         if( _requestEmail )
         {
             scopes.add(AuthScope.EMAIL);

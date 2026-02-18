@@ -1,6 +1,6 @@
 {
   "name": "com.binouze.gpgs",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "unity": "6000.3",
   "displayName": "Google Play Games Services Unity",
   "description": "Google Play Games Services integration for Android.",

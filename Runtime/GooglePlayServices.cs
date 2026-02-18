@@ -33,6 +33,8 @@ namespace com.binouze.gpgs
         /// </summary>
         [UsedImplicitly] public static GPGSSignInStatusCode LastSignInStatus {get; private set;}
         
+        [UsedImplicitly] public static bool IsSupported => GPGSManager.GetInstance().IsSupported();
+        
         static GooglePlayServices()
         {
             var settings = GPGSSettings.LoadInstance();
