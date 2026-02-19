@@ -140,8 +140,7 @@ public class GPGSHelper {
                             } else {
                                 logDebug("Silent Sign-In: Not Authenticated.");
                                 _isAuthenticated = false;
-                                int unityCode    = mapToUnityStatusCode(CommonStatusCodes.SIGN_IN_REQUIRED);
-                                sendSignInResultToUnity(unityCode, null, null, null);
+                                sendSignInResultToUnity(CommonStatusCodes.SIGN_IN_REQUIRED, null, null, null);
                             }
                         } else {
                             handleSignInException(task.getException(), "Silent Sign-In");
@@ -183,8 +182,7 @@ public class GPGSHelper {
                             } else {
                                 logDebug("Interactive Sign-In: Canceled or Failed.");
                                 _isAuthenticated = false;
-                                int unityCode    = mapToUnityStatusCode(CommonStatusCodes.CANCELED);
-                                sendSignInResultToUnity(unityCode, null, null, null);
+                                sendSignInResultToUnity(CommonStatusCodes.CANCELED, null, null, null);
                             }
                         } else {
                             handleSignInException(task.getException(), "Interactive Sign-In");
@@ -218,10 +216,9 @@ public class GPGSHelper {
         }
     
         int unityCode = mapToUnityStatusCode(googleCode);
-        
         logError(context + " Failed. StatusCode: " + googleCode + " -> UnityCode: " + unityCode + " | Message: " + errorMessage);
         
-        sendSignInResultToUnity(unityCode, null, null, null);
+        sendSignInResultToUnity(googleCode, null, null, null);
     }
 
     private static void processSignInSuccess() {
@@ -363,12 +360,14 @@ public class GPGSHelper {
     
     private static void sendSignInResultToUnity(int status, String authCode, String displayName, String gpgsId) {
         try {
-            JSONObject jsonRoot   = new JSONObject();
-            JSONObject jsonResult = new JSONObject();
+            JSONObject jsonRoot        = new JSONObject();
+            JSONObject jsonResult      = new JSONObject();
+            int        unityStatusCode = mapToUnityStatusCode(status);
 
-            jsonResult.put("Status", status);
+            jsonResult.put("Status",       unityStatusCode);
+            jsonResult.put("GoogleStatus", status);
 
-            if (status == 0) { // Success
+            if (unityStatusCode == 0) { // Success
                 jsonResult.put("AuthCode",    authCode != null    ? authCode    : "");
                 jsonResult.put("DisplayName", displayName != null ? displayName : "");
                 jsonResult.put("GPGSId",      gpgsId != null      ? gpgsId      : "");
@@ -451,12 +450,12 @@ public class GPGSHelper {
                 return 1; // ApiNotConnected
 
             case CommonStatusCodes.CANCELED:             // 16
+            case CommonStatusCodes.SIGN_IN_REQUIRED:     // 4
                 return 2; // Canceled
 
             case CommonStatusCodes.INTERRUPTED:          // 14
                 return 3; // Interrupted
 
-            case CommonStatusCodes.SIGN_IN_REQUIRED:     // 4
             case CommonStatusCodes.INVALID_ACCOUNT:      // 5
             case 12501: // SIGN_IN_CANCELLED (spécifique Google Sign In)
                 return 4; // InvalidAccount (ou Auth Failed)

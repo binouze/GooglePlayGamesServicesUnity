@@ -41,6 +41,8 @@ namespace com.binouze.gpgs
         ///<summary>User ID PlaysGameServices</summary>
         public string GPGSId { get; internal set; }
 
+        public int GoogleStatus { get; internal set; }
+        
         public GPGSSignInStatusCode Status;
 
         public static GPGSUser FromObject( Dictionary<string,object> obj )
@@ -50,36 +52,38 @@ namespace com.binouze.gpgs
 
             return new GPGSUser
             {
-                AuthCode    = obj.GetString( "AuthCode" ),
-                Email       = obj.GetString( "Email" ),
-                IdToken     = obj.GetString( "IdToken" ),
-                DisplayName = obj.GetString( "DisplayName" ),
-                FamilyName  = obj.GetString( "FamilyName" ),
-                GivenName   = obj.GetString( "GivenName" ),
-                PhotoUrl    = obj.GetString( "PhotoUrl" ),
-                UserId      = obj.GetString( "UserId" ),
-                GPGSId      = obj.GetString( "GPGSId" ),
-                Status      = (GPGSSignInStatusCode)obj.GetInt( "Status" ),
+                AuthCode     = obj.GetString( "AuthCode" ),
+                Email        = obj.GetString( "Email" ),
+                IdToken      = obj.GetString( "IdToken" ),
+                DisplayName  = obj.GetString( "DisplayName" ),
+                FamilyName   = obj.GetString( "FamilyName" ),
+                GivenName    = obj.GetString( "GivenName" ),
+                PhotoUrl     = obj.GetString( "PhotoUrl" ),
+                UserId       = obj.GetString( "UserId" ),
+                GPGSId       = obj.GetString( "GPGSId" ),
+                Status       = (GPGSSignInStatusCode)obj.GetInt( "Status" ),
+                GoogleStatus = obj.GetInt( "GoogleStatus" ),
             };
         }
 
-        public GPGSUser( GPGSSignInStatusCode status = default, string authCode = null, string email = null, string idToken = null, string displayName = null, string givenName = null, string familyName = null, string photoUrl = null, string userId = null, string gpgsId = null )
+        public GPGSUser( GPGSSignInStatusCode status = default, string authCode = null, string email = null, string idToken = null, string displayName = null, string givenName = null, string familyName = null, string photoUrl = null, string userId = null, string gpgsId = null, int googleStatus = 0 )
         {
-            Status      = status;
-            AuthCode    = authCode;
-            Email       = email;
-            IdToken     = idToken;
-            DisplayName = displayName;
-            GivenName   = givenName;
-            FamilyName  = familyName;
-            PhotoUrl    = photoUrl;
-            UserId      = userId;
-            GPGSId      = gpgsId;
+            Status       = status;
+            GoogleStatus = googleStatus;
+            AuthCode     = authCode;
+            Email        = email;
+            IdToken      = idToken;
+            DisplayName  = displayName;
+            GivenName    = givenName;
+            FamilyName   = familyName;
+            PhotoUrl     = photoUrl;
+            UserId       = userId;
+            GPGSId       = gpgsId;
         }
 
         public override string ToString()
         {
-            return $"{nameof( Status )}: {Status}, {nameof( AuthCode )}: {AuthCode}, {nameof( Email )}: {Email}, {nameof( IdToken )}: {IdToken}, {nameof( DisplayName )}: {DisplayName}, {nameof( GivenName )}: {GivenName}, {nameof( FamilyName )}: {FamilyName}, {nameof( PhotoUrl )}: {PhotoUrl}, {nameof( UserId )}: {UserId}, {nameof( GPGSId )}: {GPGSId}";
+            return $"{nameof( Status )}: {Status}, {nameof( GoogleStatus )}: {GoogleStatus}, {nameof( AuthCode )}: {AuthCode}, {nameof( Email )}: {Email}, {nameof( IdToken )}: {IdToken}, {nameof( DisplayName )}: {DisplayName}, {nameof( GivenName )}: {GivenName}, {nameof( FamilyName )}: {FamilyName}, {nameof( PhotoUrl )}: {PhotoUrl}, {nameof( UserId )}: {UserId}, {nameof( GPGSId )}: {GPGSId}";
         }
     }
 }
